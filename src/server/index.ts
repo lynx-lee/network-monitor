@@ -277,7 +277,7 @@ const collectDeviceData = async (config?: any) => {
               logger('debug', 'Pinging VM', { vmName: vm.name, vmIp: vm.ip });
               
               // Get VM IP by MAC if IP is empty or invalid (future enhancement)
-              let vmIp = vm.ip;
+              const vmIp = vm.ip;
               
               try {
                 const { status: vmStatus, pingTime: vmPingTime } = await pingDevice(vmIp, pingTimeout);
