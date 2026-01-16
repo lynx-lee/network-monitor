@@ -1,0 +1,118 @@
+services:
+  # MySQL数据库服务
+  db:
+    image: mysql:8.0
+    container_name: network-monitor-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: network_monitor
+      MYSQL_USER: network_monitor
+      MYSQL_PASSWORD: network_monitor_password
+      # 优化MySQL启动性能
+      MYSQL_INITDB_SKIP_TZINFO: "1" # 跳过时区初始化，加快启动
+      MYSQL_SKIP_TZINFO: "1"
+      TZ: Asia/Shanghai
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 10s      # 缩短健康检查间隔
+      timeout: 5s        # 缩短超时时间
+      retries: 3         # 减少重试次数
+      start_period: 10s  # 启动宽限期，给服务更多启动时间
+
+  # 后端服务
+  backend:
+    build: .
+    container_name: network-monitor-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    environment:
+      # 数据库配置
+      DB_HOST: db
+      DB_PORT: 3306  # 使用容器内部端口，更快的数据库访问
+      DB_USER: network_monitor
+      DB_PASSWORD: network_monitor_password
+      DB_NAME: network_monitor
+      # 应用配置
+      NODE_ENV: production
+      PORT: 3001
+      CLIENT_ORIGIN: http://localhost:8090
+      # 日志配置
+      LOG_LEVEL: info
+      # 优化Node.js性能
+      NODE_OPTIONS: "--max-old-space-size=256"
+      TZ: Asia/Shanghai
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s       # 缩短健康检查间隔
+      timeout: 5s         # 缩短超时时间
+      retries: 3          # 减少重试次数
+      start_period: 15s   # 启动宽限期
+    # 设置资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '512M'
+        reservations:
+          cpus: '0.25'
+          memory: '256M'
+    # 优化容器启动顺序
+    entrypoint: ["/bin/bash", "-c", "sleep 2 && npm run server"]
+
+  # 前端客户端服务
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      # 优化构建性能
+      cache_from:
+        - ${DOCKER_REPO:-network-monitor-frontend}:cache
+      args:
+        - NODE_ENV=production
+    container_name: network-monitor-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_started  # 使用service_started代替service_healthy，更快启动
+        restart: true
+    environment:
+      # 客户端配置
+      VITE_API_URL: /api
+      VITE_WS_URL: /
+      TZ: Asia/Shanghai
+    ports:
+      - "8090:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s       # 缩短健康检查间隔
+      timeout: 5s         # 缩短超时时间
+      retries: 3          # 减少重试次数
+      start_period: 5s    # 启动宽限期
+    # 设置资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'      # 降低CPU限制
+          memory: '256M'   # 降低内存限制
+        reservations:
+          cpus: '0.1'      # 降低CPU预留
+          memory: '128M'   # 降低内存预留
+    # 优化Nginx配置
+    entrypoint: ["/docker-entrypoint.sh", "nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+
+volumes:
+  mysql_data:
+    driver: local

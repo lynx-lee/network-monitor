@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置加载测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #1890ff; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #e8e8e8; border-radius: 5px; }
+        .success { background-color: #f6ffed; border-color: #b7eb8f; }
+        .error { background-color: #fff2f0; border-color: #ffccc7; }
+        .result { white-space: pre-wrap; font-family: monospace; background-color: #fafafa; padding: 10px; border-radius: 3px; }
+        button { margin: 5px; padding: 8px 16px; background-color: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #40a9ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>网络监控系统配置加载测试</h1>
+        
+        <div class="section">
+            <h2>测试步骤</h2>
+            <p>1. 检查API连接</p>
+            <p>2. 测试配置加载</p>
+            <p>3. 测试设备数据加载</p>
+        </div>
+        
+        <div class="section">
+            <h2>测试操作</h2>
+            <button onclick="testApiConnection()">测试API连接</button>
+            <button onclick="testConfigLoad()">测试配置加载</button>
+            <button onclick="testDevicesLoad()">测试设备数据加载</button>
+            <button onclick="testWebSocketConnection()">测试WebSocket连接</button>
+        </div>
+        
+        <div id="apiResult" class="section">
+            <h2>API连接测试结果</h2>
+            <div class="result">等待测试...</div>
+        </div>
+        
+        <div id="configResult" class="section">
+            <h2>配置加载测试结果</h2>
+            <div class="result">等待测试...</div>
+        </div>
+        
+        <div id="devicesResult" class="section">
+            <h2>设备数据测试结果</h2>
+            <div class="result">等待测试...</div>
+        </div>
+        
+        <div id="websocketResult" class="section">
+            <h2>WebSocket测试结果</h2>
+            <div class="result">等待测试...</div>
+        </div>
+    </div>
+    
+    <script>
+        // 测试API连接
+        async function testApiConnection() {
+            const resultDiv = document.getElementById('apiResult');
+            const resultContent = resultDiv.querySelector('.result');
+            
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'section success';
+                    resultContent.textContent = `API连接成功！\n状态：${data.status}\n消息：${data.message}`;
+                } else {
+                    resultDiv.className = 'section error';
+                    resultContent.textContent = `API连接失败！\n状态码：${response.status}\n响应：${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'section error';
+                resultContent.textContent = `API连接异常！\n错误：${error.message}`;
+            }
+        }
+        
+        // 测试配置加载
+        async function testConfigLoad() {
+            const resultDiv = document.getElementById('configResult');
+            const resultContent = resultDiv.querySelector('.result');
+            
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'section success';
+                    resultContent.textContent = `配置加载成功！\n配置数据：\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'section error';
+                    resultContent.textContent = `配置加载失败！\n状态码：${response.status}\n响应：${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'section error';
+                resultContent.textContent = `配置加载异常！\n错误：${error.message}`;
+            }
+        }
+        
+        // 测试设备数据加载
+        async function testDevicesLoad() {
+            const resultDiv = document.getElementById('devicesResult');
+            const resultContent = resultDiv.querySelector('.result');
+            
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'section success';
+                    resultContent.textContent = `设备数据加载成功！\n设备数量：${data.length}\n设备列表：\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'section error';
+                    resultContent.textContent = `设备数据加载失败！\n状态码：${response.status}\n响应：${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'section error';
+                resultContent.textContent = `设备数据加载异常！\n错误：${error.message}`;
+            }
+        }
+        
+        // 测试WebSocket连接
+        function testWebSocketConnection() {
+            const resultDiv = document.getElementById('websocketResult');
+            const resultContent = resultDiv.querySelector('.result');
+            
+            try {
+                // 使用相对路径连接WebSocket
+                const ws = new WebSocket(`ws://${window.location.host}/socket.io/?EIO=4&transport=websocket`);
+                
+                let timeoutId;
+                
+                ws.onopen = () => {
+                    resultDiv.className = 'section success';
+                    resultContent.textContent = 'WebSocket连接成功！';
+                    clearTimeout(timeoutId);
+                    // 1秒后关闭连接
+                    setTimeout(() => ws.close(), 1000);
+                };
+                
+                ws.onmessage = (event) => {
+                    // 忽略ping/pong消息
+                    if (!event.data.startsWith('2')) {
+                        resultContent.textContent += `\n收到消息：${event.data}`;
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    resultDiv.className = 'section error';
+                    resultContent.textContent = `WebSocket连接错误！\n错误：${error.message}`;
+                    clearTimeout(timeoutId);
+                };
+                
+                ws.onclose = () => {
+                    resultContent.textContent += '\nWebSocket连接已关闭';
+                };
+                
+                // 设置5秒超时
+                timeoutId = setTimeout(() => {
+                    resultDiv.className = 'section error';
+                    resultContent.textContent = 'WebSocket连接超时！';
+                    ws.close();
+                }, 5000);
+                
+            } catch (error) {
+                resultDiv.className = 'section error';
+                resultContent.textContent = `WebSocket连接异常！\n错误：${error.message}`;
+            }
+        }
+        
+        // 页面加载完成后自动运行所有测试
+        window.onload = () => {
+            testApiConnection();
+            testConfigLoad();
+            testDevicesLoad();
+            testWebSocketConnection();
+        };
+    </script>
+</body>
+</html>

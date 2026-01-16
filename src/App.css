@@ -1,0 +1,344 @@
+#root {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: all 0.3s ease;
+}
+
+/* 浅色主题样式 */
+.ant-layout {
+  background: #fff;
+  transition: all 0.3s ease;
+}
+
+.ant-layout-sider {
+  border-right: 1px solid #f0f0f0;
+  background: #fff;
+  transition: all 0.3s ease;
+}
+
+/* 深色主题样式 */
+body .ant-theme-dark .ant-layout {
+  background: #051221;
+}
+
+body .ant-theme-dark .ant-layout-sider {
+  border-right: 1px solid #1f3a5f;
+  background: #0e263c;
+}
+
+/* 节点样式优化 */
+.react-flow__node {
+  cursor: grab;
+  transition: all 0.3s ease;
+}
+
+.react-flow__node:active {
+  cursor: grabbing;
+  transform: scale(1.02);
+}
+
+/* 连接点样式优化 */
+.react-flow__handle {
+  cursor: crosshair;
+  transition: all 0.3s ease;
+  border-radius: 50%;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 连接线样式优化 */
+.react-flow__edge-path {
+  stroke: #1890ff;
+  stroke-width: 2;
+  transition: all 0.3s ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #1890ff;
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+/* 控制按钮样式优化 */
+.react-flow__controls {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.react-flow__controls button {
+  background: #fff;
+  border: none;
+  color: #595959;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  margin: 4px;
+}
+
+.react-flow__controls button:hover {
+  background: #f5f5f5;
+  color: #1890ff;
+  transform: scale(1.1);
+}
+
+/* 小地图样式优化 */
+.react-flow__minimap {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 背景网格样式优化 */
+.react-flow__background {
+  background-size: 20px 20px;
+  background-color: #fafafa;
+  background-image: 
+    linear-gradient(to right, #e8e8e8 1px, transparent 1px),
+    linear-gradient(to bottom, #e8e8e8 1px, transparent 1px);
+  transition: all 0.3s ease;
+}
+
+/* 深色主题下的背景网格 */
+.react-flow__background.dark {
+  background-color: #051221;
+  background-image: 
+    linear-gradient(to right, #1f3a5f 1px, transparent 1px),
+    linear-gradient(to bottom, #1f3a5f 1px, transparent 1px);
+}
+
+/* 确保ReactFlow容器背景色正确 */
+.react-flow {
+  background-color: transparent !important;
+}
+
+/* 深色主题下的ReactFlow容器 */
+body .ant-theme-dark .react-flow {
+  background-color: #051221 !important;
+}
+
+/* 卡片样式优化 */
+.ant-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  border: 1px solid #d9d9d9;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+/* 按钮样式优化 */
+.ant-btn {
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.ant-btn-primary {
+  background: #1890ff;
+  border: none;
+}
+
+.ant-btn-primary:hover {
+  background: #40a9ff;
+}
+
+/* 表单样式优化 */
+.ant-form-item {
+  margin-bottom: 16px;
+}
+
+.ant-input, .ant-select-selector, .ant-input-number {
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.ant-input:hover, .ant-select-selector:hover, .ant-input-number:hover {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+.ant-input:focus, .ant-select-selector:focus, .ant-input-number:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 侧边栏样式优化 */
+.ant-menu {
+  background: transparent;
+  border-right: none;
+}
+
+.ant-menu-item {
+  border-radius: 8px;
+  margin: 4px 8px;
+  transition: all 0.3s ease;
+}
+
+.ant-menu-item:hover {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.ant-menu-item-selected {
+  background: #1890ff;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.3);
+}
+
+/* 模态框样式优化 */
+.ant-modal {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ant-modal-content {
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: none;
+}
+
+.ant-modal-header {
+  border-radius: 16px 16px 0 0;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 标签样式优化 */
+.ant-tag {
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+/* 滚动条样式优化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+  transform: scale(1.2);
+}
+
+/* 深色主题滚动条 */
+body .ant-theme-dark ::-webkit-scrollbar-track {
+  background: #0a1929;
+}
+
+body .ant-theme-dark ::-webkit-scrollbar-thumb {
+  background: #1f3a5f;
+}
+
+body .ant-theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: #2c5282;
+}
+
+/* 加载动画优化 */
+.ant-spin {
+  transition: all 0.3s ease;
+}
+
+.ant-spin-dot {
+  font-size: 24px;
+  color: #1890ff;
+}
+
+/* 工具提示样式优化 */
+.ant-tooltip-inner {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+/* 拖拽样式优化 */
+.react-flow__node.dragging {
+  cursor: grabbing;
+  opacity: 0.8;
+  transform: scale(1.05);
+  z-index: 1000;
+}
+
+/* 选择框样式优化 */
+.react-flow__selection {
+  background: rgba(24, 144, 255, 0.1);
+  border: 2px dashed #1890ff;
+  border-radius: 8px;
+}
+
+/* 连接线创建时样式 */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dash 0.5s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+  }
+  
+  .react-flow__controls {
+    bottom: 20px;
+    right: 20px;
+  }
+  
+  .react-flow__minimap {
+    bottom: 80px;
+    right: 20px;
+  }
+}
+
