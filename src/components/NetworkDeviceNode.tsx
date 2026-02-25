@@ -16,22 +16,15 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { NetworkDevice } from '../../types';
 import useNetworkStore from '../store/networkStore';
-import useConfigStore from '../store/configStore';
+import useTheme from '../hooks/useTheme';
 
 const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
   data,
   selected,
 }) => {
   const { selectDevice } = useNetworkStore();
-  const { theme: configTheme } = useConfigStore();
+  const currentTheme = useTheme();
   const { t } = useTranslation();
-  
-  const currentTheme = React.useMemo(() => {
-    if (configTheme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return configTheme;
-  }, [configTheme]);
 
   const handleNodeClick = () => {
     selectDevice(data);
@@ -100,16 +93,6 @@ const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
                 type="source"
                 position={Position.Right}
                 style={handleStyle}
-                onMouseOver={(event) => {
-                  const target = event.target as HTMLElement;
-                  target.style.transform = 'scale(1.4)';
-                  target.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)';
-                }}
-                onMouseOut={(event) => {
-                  const target = event.target as HTMLElement;
-                  target.style.transform = 'scale(1)';
-                  target.style.boxShadow = '0 0 4px rgba(0, 0, 0, 0.2)';
-                }}
               />
             </Tooltip>
             
@@ -120,16 +103,6 @@ const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
                 type="target"
                 position={Position.Left}
                 style={handleStyle}
-                onMouseOver={(event) => {
-                  const target = event.target as HTMLElement;
-                  target.style.transform = 'scale(1.4)';
-                  target.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)';
-                }}
-                onMouseOut={(event) => {
-                  const target = event.target as HTMLElement;
-                  target.style.transform = 'scale(1)';
-                  target.style.boxShadow = '0 0 4px rgba(0, 0, 0, 0.2)';
-                }}
               />
             </Tooltip>
           </Fragment>
@@ -250,14 +223,16 @@ const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
                     alignItems: 'center', 
                     gap: '6px', 
                     fontSize: '11px',
-                    backgroundColor: port.status === 'up' ? '#f6ffed' : port.status === 'warning' ? '#fff7e6' : '#fff1f0',
+                    backgroundColor: currentTheme === 'dark'
+                      ? (port.status === 'up' ? '#0a2e1a' : port.status === 'warning' ? '#2e2400' : '#2e0e0e')
+                      : (port.status === 'up' ? '#f6ffed' : port.status === 'warning' ? '#fff7e6' : '#fff1f0'),
                     padding: '4px 8px',
                     borderRadius: '6px',
                     borderLeft: `3px solid ${port.status === 'up' ? '#52c41a' : port.status === 'warning' ? '#faad14' : '#ff4d4f'}`
                   }}
                 >
                   {getPortIcon()}
-                  <span style={{ fontWeight: 'bold', color: '#595959' }}>{port.name}</span>
+                  <span style={{ fontWeight: 'bold', color: currentTheme === 'dark' ? '#d0d8e0' : '#595959' }}>{port.name}</span>
                   <span style={{ flex: 1, textAlign: 'right', color: '#8c8c8c' }}>
                     {port.rate === 1000 ? '1 Gbps' : 
                      port.rate === 10000 ? '10 Gbps' : 

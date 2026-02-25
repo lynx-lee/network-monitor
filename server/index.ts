@@ -37,6 +37,29 @@ dotenv.config();
 
 const logger = loggerService.log.bind(loggerService);
 
+// Concurrency limiter for ping operations
+const MAX_CONCURRENT_PINGS = 10;
+
+async function limitConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = [];
+  const executing: Promise<void>[] = [];
+  
+  for (const task of tasks) {
+    const p = task().then(result => {
+      results.push(result);
+      executing.splice(executing.indexOf(p), 1);
+    });
+    executing.push(p);
+    
+    if (executing.length >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  
+  await Promise.all(executing);
+  return results;
+}
+
 // Create Express app
 const app = express();
 
@@ -226,8 +249,8 @@ const collectDeviceData = async (config?: any) => {
   
   logger('debug', 'Collecting device data', { deviceCount: (devices as any[]).length, enablePing });
   
-  // Process each device
-  const updatedDevices = await Promise.all((devices as any[]).map(async (device: any) => {
+  // Process each device with concurrency limit
+  const deviceTasks = (devices as any[]).map((device: any) => () => (async () => {
     // Get device IP by MAC if IP is empty or invalid
     let deviceIp = device.ip;
     try {
@@ -320,7 +343,9 @@ const collectDeviceData = async (config?: any) => {
         ip: deviceIp // Update device IP if we got it from MAC
       };
     }
-  }));
+  })());
+
+  const updatedDevices = await limitConcurrency(deviceTasks, MAX_CONCURRENT_PINGS);
   
   logger('debug', 'Device data collection completed', { updatedDevices: updatedDevices.length });
   return updatedDevices;

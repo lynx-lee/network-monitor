@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Modal, Switch, Select, Card, Space, Divider, InputNumber, Input, Button, Form, Table, Popconfirm, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,16 @@ interface ConfigPanelProps {
 
 const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
+
+  // Debounced update helper for InputNumber fields
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const debouncedUpdate = useCallback((key: string, fn: (v: number) => void, value: number) => {
+    if (debounceTimers.current[key]) {
+      clearTimeout(debounceTimers.current[key]);
+    }
+    debounceTimers.current[key] = setTimeout(() => fn(value), 500);
+  }, []);
+
   const {
     // Existing configs
     language,
@@ -155,7 +165,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
             <span style={{ marginBottom: '8px', display: 'block' }}>{t('pingIntervalDesc')}</span>
             <InputNumber
               value={pingInterval}
-              onChange={(value) => value && updatePingInterval(value)}
+              onChange={(value) => value && debouncedUpdate('pingInterval', updatePingInterval, value)}
               style={{ width: '100%' }}
               placeholder={t('enterPingInterval')}
               min={1000}
@@ -257,7 +267,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
               </div>
               <InputNumber
                 value={warningPingThreshold}
-                onChange={(value) => value && updateWarningPingThreshold(value)}
+                onChange={(value) => value && debouncedUpdate('warningPing', updateWarningPingThreshold, value)}
                 style={{ width: '100%' }}
                 min={1}
                 max={1000}
@@ -273,7 +283,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
               </div>
               <InputNumber
                 value={criticalPingThreshold}
-                onChange={(value) => value && updateCriticalPingThreshold(value)}
+                onChange={(value) => value && debouncedUpdate('criticalPing', updateCriticalPingThreshold, value)}
                 style={{ width: '100%' }}
                 min={1}
                 max={5000}
@@ -289,7 +299,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
               </div>
               <InputNumber
                 value={alertMaxCountPerDay}
-                onChange={(value) => value && updateAlertMaxCountPerDay(value)}
+                onChange={(value) => value && debouncedUpdate('alertMax', updateAlertMaxCountPerDay, value)}
                 style={{ width: '100%' }}
                 min={1}
                 max={1000}
@@ -308,7 +318,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
               </div>
               <InputNumber
                 value={alertConsecutiveFailThreshold}
-                onChange={(value) => value && updateAlertConsecutiveFailThreshold(value)}
+                onChange={(value) => value && debouncedUpdate('consecutiveFail', updateAlertConsecutiveFailThreshold, value)}
                 style={{ width: '100%' }}
                 min={1}
                 max={100}

@@ -9,10 +9,12 @@ import {
   ContainerOutlined,
   BranchesOutlined,
   PlusOutlined,
+  SettingOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
-import useConfigStore from '../store/configStore';
+import useTheme from '../hooks/useTheme';
 import type { DeviceType } from '../../types';
 
 const { Title, Text } = Typography;
@@ -26,15 +28,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpenAlertPanel, collapsed }) => {
   const { t } = useTranslation();
-  const { theme: configTheme } = useConfigStore();
-
-  // 获取当前主题
-  const currentTheme = React.useMemo(() => {
-    if (configTheme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return configTheme;
-  }, [configTheme]);
+  const currentTheme = useTheme();
 
   // 主题样式配置
   const isDark = currentTheme === 'dark';
@@ -179,6 +173,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
           block
           onClick={onOpenConfigPanel}
           size={collapsed ? 'small' : 'large'}
+          icon={collapsed ? <SettingOutlined /> : undefined}
           style={{ 
             justifyContent: collapsed ? 'center' : 'flex-start', 
             fontSize: collapsed ? '12px' : '14px', 
@@ -194,6 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
           block
           onClick={onOpenAlertPanel}
           size={collapsed ? 'small' : 'large'}
+          icon={collapsed ? <AlertOutlined /> : undefined}
           style={{ 
             justifyContent: collapsed ? 'center' : 'flex-start', 
             fontSize: collapsed ? '12px' : '14px', 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Layout, ConfigProvider, theme } from 'antd';
 import { ReactFlowProvider } from 'reactflow';
 import './App.css';
@@ -10,6 +10,7 @@ import AlertPanel from './components/AlertPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 import useNetworkStore from './store/networkStore';
 import useConfigStore from './store/configStore';
+import useTheme from './hooks/useTheme';
 import type { DeviceType, NetworkDevice } from '../types';
 import './i18n/config'; // 引入i18n配置
 import websocketService from './services/websocketService';
@@ -18,11 +19,11 @@ const { Sider, Content } = Layout;
 
 function App() {
   const { addDevice, selectedDevice, updateDevice, deleteDevice, fetchAllData } = useNetworkStore();
-  const { theme: configTheme, fetchConfig } = useConfigStore();
+  const { fetchConfig } = useConfigStore();
+  const currentTheme = useTheme();
   const [configVisible, setConfigVisible] = React.useState(false);
   const [systemConfigVisible, setSystemConfigVisible] = React.useState(false);
   const [alertPanelVisible, setAlertPanelVisible] = React.useState(false);
-  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   
   // State for sidebar collapse/expand
@@ -53,28 +54,6 @@ function App() {
       websocketService.disconnect();
     };
   }, [fetchConfig, fetchAllData]);
-  
-  // 监听系统主题变化
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if (configTheme === 'system') {
-        setCurrentTheme(mediaQuery.matches ? 'dark' : 'light');
-      }
-    };
-    
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [configTheme]);
-  
-  // 监听配置主题变化
-  useEffect(() => {
-    if (configTheme === 'system') {
-      setCurrentTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    } else {
-      setCurrentTheme(configTheme);
-    }
-  }, [configTheme]);
   
   const handleOpenConfigPanel = () => {
     setSystemConfigVisible(true);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -10,8 +10,8 @@ import 'reactflow/dist/style.css';
 import NetworkDeviceNode from './NetworkDeviceNode';
 import useNetworkStore from '../store/networkStore';
 import useConfigStore from '../store/configStore';
+import useTheme from '../hooks/useTheme';
 import type { NetworkDevice } from '../../types';
-import { throttle } from '../utils/performanceUtils';
 
 const nodeTypes = {
   networkDevice: NetworkDeviceNode,
@@ -19,15 +19,8 @@ const nodeTypes = {
 
 const NetworkCanvas: React.FC = () => {
   const { devices, connections, updateDevice, addConnection, deleteConnection } = useNetworkStore();
-  const { theme: configTheme, showMiniMap, showControls, showBackground, lockCanvas, toggleCanvasLock } = useConfigStore();
-  
-  // 获取当前主题
-  const currentTheme = React.useMemo(() => {
-    if (configTheme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return configTheme;
-  }, [configTheme]);
+  const { showMiniMap, showControls, showBackground, lockCanvas, toggleCanvasLock } = useConfigStore();
+  const currentTheme = useTheme();
   
   // State for right-click menu
   const [contextMenu, setContextMenu] = useState<{
@@ -44,16 +37,19 @@ const NetworkCanvas: React.FC = () => {
     hovered: false,
   });
 
-  // Convert our network devices to ReactFlow nodes
-  const nodes: Node<NetworkDevice>[] = (devices || []).map((device) => ({
-    id: device.id,
-    type: 'networkDevice',
-    position: { x: device.x, y: device.y },
-    data: device,
-  }));
+  // Convert our network devices to ReactFlow nodes (memoized)
+  const nodes: Node<NetworkDevice>[] = useMemo(
+    () => (devices || []).map((device) => ({
+      id: device.id,
+      type: 'networkDevice',
+      position: { x: device.x, y: device.y },
+      data: device,
+    })),
+    [devices]
+  );
 
-  // Convert our connections to ReactFlow edges
-  const edges: Edge[] = (connections || []).map((conn) => {
+  // Convert our connections to ReactFlow edges (memoized)
+  const edges: Edge[] = useMemo(() => (connections || []).map((conn) => {
     // Calculate line rate based on minimum port rate of both ends
     const sourceDevice = (devices || []).find(d => d.id === conn.source);
     const targetDevice = (devices || []).find(d => d.id === conn.target);
@@ -113,7 +109,7 @@ const NetworkCanvas: React.FC = () => {
       // Add hover effect
       defaultInteractionMode: 'select',
     };
-  });
+  }), [connections, devices, currentTheme]);
 
   // Handle edge creation with duplicate check
   const onConnect = useCallback(
@@ -157,13 +153,24 @@ const NetworkCanvas: React.FC = () => {
   );
 
   // Handle node changes (including position updates when dragging)
+  // Use ref-based throttle to avoid recreating throttle on every render
+  const throttleTimerRef = useRef<boolean>(false);
+  const devicesRef = useRef(devices);
+  const updateDeviceRef = useRef(updateDevice);
+  devicesRef.current = devices;
+  updateDeviceRef.current = updateDevice;
+
   const onNodesChange = useCallback(
-    throttle((changes: NodeChange[]) => {
+    (changes: NodeChange[]) => {
+      if (throttleTimerRef.current) return;
+      throttleTimerRef.current = true;
+      setTimeout(() => { throttleTimerRef.current = false; }, 100);
+
       changes.forEach((change) => {
         if (change.type === 'position') {
-          const device = (devices || []).find((d) => d.id === change.id);
+          const device = (devicesRef.current || []).find((d) => d.id === change.id);
           if (device && change.position) {
-            updateDevice({
+            updateDeviceRef.current({
               ...device,
               x: change.position.x,
               y: change.position.y,
@@ -171,8 +178,8 @@ const NetworkCanvas: React.FC = () => {
           }
         }
       });
-    }, 100), // Throttle to 100ms
-    [devices, updateDevice]
+    },
+    [] // stable — uses refs
   );
 
   // Handle edge deletion

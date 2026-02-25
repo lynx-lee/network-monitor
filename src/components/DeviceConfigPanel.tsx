@@ -3,7 +3,7 @@ import { Modal, Form, Input, Select, Button, Space, InputNumber, Card, Divider }
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { NetworkDevice, DevicePort, VirtualMachine } from '../../types';
-import useConfigStore from '../store/configStore';
+import useTheme from '../hooks/useTheme';
 
 const { Option } = Select;
 
@@ -17,19 +17,11 @@ interface DeviceConfigPanelProps {
 
 const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, onClose, onSave, onDelete }) => {
   const { t } = useTranslation();
-  const { theme: configTheme } = useConfigStore();
+  const currentTheme = useTheme();
   const [form] = Form.useForm();
   const [portCount, setPortCount] = useState(0);
   const [ports, setPorts] = useState<DevicePort[]>([]);
   const [virtualMachines, setVirtualMachines] = useState<VirtualMachine[]>([]);
-  
-  // 获取当前主题
-  const currentTheme = React.useMemo(() => {
-    if (configTheme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return configTheme;
-  }, [configTheme]);
   
   // 主题样式配置
   const isDark = currentTheme === 'dark';

@@ -4,9 +4,8 @@ import { EyeOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { apiConfig } from '../config';
 import useNetworkStore from '../store/networkStore';
+import useTheme from '../hooks/useTheme';
 import type { NetworkDevice } from '../../types';
-
-const { TabPane } = Tabs;
 
 interface Alert {
   id: number;
@@ -28,9 +27,12 @@ interface AlertPanelProps {
 
 const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   const { devices } = useNetworkStore();
+  const currentTheme = useTheme();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
   const [alertSettings, setAlertSettings] = useState<Record<string, boolean>>({});
+  
+  const isDark = currentTheme === 'dark';
   
   // Fetch alerts and alert settings when modal is opened
   useEffect(() => {
@@ -60,7 +62,6 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
       setAlertSettings(response.data);
     } catch (error) {
       console.error('Failed to fetch alert settings:', error);
-      // 出错时使用空对象，避免UI异常
       setAlertSettings({});
     }
   };
@@ -153,11 +154,9 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   // IP地址排序函数
   const sortDevicesByIp = (devices: NetworkDevice[]) => {
     return [...devices].sort((a, b) => {
-      // 处理没有IP的设备，排在最后
       if (!a.ip) return 1;
       if (!b.ip) return -1;
       
-      // 将IP地址转换为数字进行比较
       const ipToNumber = (ip: string) => {
         return ip.split('.').reduce((acc, octet) => {
           return (acc << 8) + parseInt(octet, 10);
@@ -167,6 +166,44 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
       return ipToNumber(a.ip) - ipToNumber(b.ip);
     });
   };
+
+  // Build Tabs items using new API (instead of deprecated TabPane)
+  const tabItems = [
+    {
+      key: 'all',
+      label: '所有告警',
+      children: (
+        <Table
+          dataSource={alerts}
+          columns={alertColumns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 800 }}
+        />
+      ),
+    },
+    ...(deviceTypes || []).map(type => ({
+      key: type,
+      label: (
+        <Space>
+          <EyeOutlined />
+          {(type || '').charAt(0).toUpperCase() + (type || '').slice(1)}
+          <Tag color="blue">{getAlertsByDeviceType(type).length}</Tag>
+        </Space>
+      ),
+      children: (
+        <Table
+          dataSource={getAlertsByDeviceType(type)}
+          columns={alertColumns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 800 }}
+        />
+      ),
+    })),
+  ];
   
   return (
     <Modal
@@ -176,46 +213,11 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
       footer={null}
       width={1000}
     >
-      <Tabs defaultActiveKey="all">
-        {/* All alerts tab */}
-        <TabPane tab="所有告警" key="all">
-          <Table
-            dataSource={alerts}
-            columns={alertColumns}
-            rowKey="id"
-            loading={loading}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 800 }}
-          />
-        </TabPane>
-        
-        {/* Device type tabs */}
-        {(deviceTypes || []).map(type => (
-          <TabPane 
-            tab={
-              <Space>
-                <EyeOutlined />
-                {(type || '').charAt(0).toUpperCase() + (type || '').slice(1)}
-                <Tag color="blue">{getAlertsByDeviceType(type).length}</Tag>
-              </Space>
-            } 
-            key={type}
-          >
-            <Table
-              dataSource={getAlertsByDeviceType(type)}
-              columns={alertColumns}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 800 }}
-            />
-          </TabPane>
-        ))}
-      </Tabs>
+      <Tabs defaultActiveKey="all" items={tabItems} />
       
       {/* Device alert settings */}
       <div style={{ marginTop: 24 }}>
-        <h3>设备告警开关</h3>
+        <h3 style={{ color: isDark ? '#ffffff' : '#000000' }}>设备告警开关</h3>
         <Space direction="vertical" style={{ width: '100%' }}>
           {sortDevicesByIp(devices || []).map(device => (
             <Card key={device.id} size="small">

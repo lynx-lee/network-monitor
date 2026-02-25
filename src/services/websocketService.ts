@@ -17,7 +17,7 @@ class WebSocketService {
   private isConnected: boolean = false;
   private connectionAttempts: number = 0;
   private maxReconnectionAttempts: number = WS_CONFIG.RECONNECTION_ATTEMPTS;
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners: Map<string, Function[]> = new Map();
 
   connect(): void {
@@ -104,7 +104,7 @@ class WebSocketService {
         vmHosts.forEach(host => {
           if (host.virtualMachines) {
             console.log(`VM host ${host.id} has ${host.virtualMachines.length} virtual machines:`);
-            host.virtualMachines.forEach((vm: import('../types').VirtualMachine) => {
+            host.virtualMachines.forEach((vm: import('../../types').VirtualMachine) => {
               console.log(`  - ${vm.name} (${vm.ip}) Status: ${vm.status} Ping: ${vm.pingTime} ms`);
             });
           }
@@ -173,7 +173,8 @@ class WebSocketService {
     
     this.isConnected = false;
     this.connectionAttempts = 0;
-    this.notifyListeners('disconnect', 'manual');
+    // Clear all custom listeners on disconnect to prevent memory leaks
+    this.removeAllListeners();
   }
 
   /**
@@ -361,21 +362,36 @@ class WebSocketService {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)?.push(listener);
+    // Prevent duplicate listeners
+    const existing = this.listeners.get(event)!;
+    if (!existing.includes(listener)) {
+      existing.push(listener);
+    }
   }
 
   /**
    * Remove event listener for WebSocket events
    */
-  off(event: string, listener: Function): void {
-    if (this.listeners.has(event)) {
+  off(event: string, listener?: Function): void {
+    if (!this.listeners.has(event)) return;
+    if (listener) {
       const filteredListeners = this.listeners.get(event)?.filter(l => l !== listener) || [];
       if (filteredListeners.length > 0) {
         this.listeners.set(event, filteredListeners);
       } else {
         this.listeners.delete(event);
       }
+    } else {
+      // Remove all listeners for this event
+      this.listeners.delete(event);
     }
+  }
+
+  /**
+   * Remove all listeners for all events
+   */
+  removeAllListeners(): void {
+    this.listeners.clear();
   }
 
   /**
