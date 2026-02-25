@@ -6,6 +6,101 @@
 
 采用前后端分离架构：前端基于 React 19 + TypeScript，后端基于 Node.js 22 + Express 5，通过 Socket.IO 实现实时数据推送，MySQL 8 存储设备信息和配置数据，Docker Compose 容器化部署。
 
+## 版本更新
+
+### V3.0.1
+
+V3.0.1 为部署脚本增强与文档完善版本。
+
+#### 部署脚本增强
+
+- **重构 `deploy.sh`**：完全重写部署脚本，新增 `init`（初始化环境）、`backup`（备份 MySQL + 日志）、`restore`（恢复数据）、`update`（git pull + rebuild）、`exec`（进入容器）、`health`（前端/后端/MySQL 健康检查）、`clean --deep`（深度清理）等命令
+- **ASCII Banner**：启动时显示项目 ASCII 艺术横幅
+- **彩色日志**：INFO / WARN / ERROR / SUCCESS 分色输出
+- **Docker Compose 兼容**：自动检测 `docker compose` 或 `docker-compose` 命令
+- **Git 拉取优化**：`update` 命令自动检测可用 remote 和当前分支，无 remote 时优雅跳过，避免硬编码 `origin`/`main`
+
+#### 文档完善
+
+- **版本更新日志**：README 新增 V2.0.0、V3.0.0 版本更新记录
+- **项目结构更新**：补充 `deploy.sh` 条目描述
+
+### V3.0.0
+
+V3.0.0 为架构级重构版本，共涉及 54 个文件变更（+1960 / -2939 行）。
+
+#### 架构重构
+
+- **前后端分离**：将 `src/server/` 拆分为独立的 `server/` 目录，新增 `tsconfig.server.json`
+- **项目结构整理**：类型定义移至 `types/`，文档移至 `docs/`，测试移至 `tests/manual/`
+- **清理冗余代码**：删除 `OptimizedNetworkCanvas`、`OptimizedNetworkDeviceNode`、`VirtualizedNodeList`、前端 `serverChanService` 等未使用模块（净减 979 行）
+- **环境配置优化**：重构 `.env.example`，优化服务端配置加载和安全性
+
+#### Docker 容器化部署
+
+- **Docker Compose 编排**：三容器架构（MySQL + Backend + Frontend/Nginx），健康检查保证启动顺序
+- **部署目录集中化**：所有部署文件集中到 `deploy/`（Dockerfile、docker-compose.yml、nginx.conf、mysql-init.sql）
+- **部署脚本**：`deploy/deploy.sh` 支持 init / start / stop / restart / build / logs / update / backup / restore / health / clean 等命令
+- **环境变量文件加载**：支持 Docker Compose 自动加载 `.env`
+
+#### UI/UX 优化
+
+- **侧边栏折叠**：Ant Design 图标触发器，半圆角设计，悬停高亮
+- **加载动画**：Spin 组件全屏加载态，替代纯文本提示
+- **空画布引导**：大图标 + 设备类型提示，引导用户添加设备
+- **右键菜单美化**：圆角、柔和阴影、fadeIn 动画、红色删除图标
+- **设备节点精简**：隐藏 MAC 地址，端口默认折叠为摘要行（可展开）
+- **配置面板 Tabs 化**：5 个标签页（界面/Ping/ServerChan/告警阈值/消息模板）
+- **折叠态 Tooltip / 双击编辑 / 删除二次确认 / 新设备随机偏移**
+
+#### 性能优化
+
+- **deviceMap O(1) 查找**：Map 替代数组 `find()`
+- **MiniMap / Handle 样式缓存**：`useCallback` + `useMemo` 减少不必要重渲染
+- **主题逻辑重构**：抽取 `useTheme` Hook
+- **Vite 构建优化**：新增构建配置
+
+#### 国际化 (i18n)
+
+- **i18next 集成**：中/英双语支持，`LanguageSwitcher` 组件
+- **全量覆盖**：AlertPanel、ConfigPanel、DeviceConfigPanel、NetworkCanvas、NetworkDeviceNode、Sidebar 等组件全部国际化
+- **紧凑节点模式**：配合 i18n 新增节点显示模式配置
+
+### V2.0.0
+
+V2.0.0 为项目初始版本，完成全部核心功能开发，共 68 个文件（+20817 行）。
+
+#### 核心功能
+
+- **网络拓扑可视化**：基于 React Flow 实现设备拖拽、缩放、连接管理
+- **实时监控**：Socket.IO 双向通信，服务端推送设备状态和 Ping 延迟
+- **智能告警**：设备离线检测、延迟阈值告警、告警规则引擎（`alertService`）
+- **ServerChan 推送**：告警信息通过 Server 酱推送至微信
+- **设备管理**：支持路由器、交换机、服务器、防火墙等多种设备类型
+- **连接管理**：设备间连线自动去重，支持增删
+
+#### 前端架构
+
+- **React 19 + TypeScript + Vite**：现代前端技术栈
+- **Ant Design**：UI 组件库（Layout、Drawer、Form、Table 等）
+- **Zustand 状态管理**：`networkStore`（设备/连接）+ `configStore`（系统配置）
+- **组件体系**：NetworkCanvas、NetworkDeviceNode、Sidebar、DeviceConfigPanel、ConfigPanel、AlertPanel、ErrorBoundary、LanguageSwitcher
+
+#### 后端架构
+
+- **Node.js 22 + Express + Socket.IO**：REST API + WebSocket 实时推送
+- **MySQL 8.0**：devices / connections / configs / alerts / alert_settings 五张表
+- **服务层**：configService（数据库操作）、alertService（告警引擎）、monitoringService（系统监控）、cacheService（内存缓存）、loggerService（文件日志）、businessMonitoringService（业务指标）
+
+#### 部署 & 基础设施
+
+- **Docker + Docker Compose**：容器化编排（MySQL + Backend + Frontend/Nginx）
+- **Nginx 反向代理**：静态资源服务 + API/WebSocket 代理
+- **环境变量管理**：`.env.example` 模板
+- **国际化基础**：i18next 框架集成，基础中/英翻译
+- **测试脚本**：API 端点测试（`test_api.sh`）、告警功能测试、配置加载测试
+- **工具函数**：`debounce`、`throttle` 性能优化工具
+
 ## 系统架构
 
 ```
@@ -219,6 +314,7 @@ network-monitor/
 │       └── test-config-load.html  # 配置加载测试
 ├── public/                     # 静态资源（Vite）
 ├── deploy/                     # 部署相关文件
+│   ├── deploy.sh               # 部署管理脚本（init/start/stop/backup/restore/health 等）
 │   ├── docker-compose.yml      # Docker Compose 编排
 │   ├── Dockerfile              # 后端 + 前端构建镜像
 │   ├── Dockerfile.frontend     # 前端独立镜像（Nginx）
