@@ -57,7 +57,11 @@ load_env() {
 }
 
 compose() {
-  $DOCKER_COMPOSE -f "$COMPOSE_FILE" --project-directory "$PROJECT_ROOT" "$@"
+  if [ -f "$PROJECT_ROOT/.env" ]; then
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" --env-file "$PROJECT_ROOT/.env" "$@"
+  else
+    $DOCKER_COMPOSE -f "$COMPOSE_FILE" "$@"
+  fi
 }
 
 cmd_up() {
