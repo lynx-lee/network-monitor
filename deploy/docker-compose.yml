@@ -30,6 +30,7 @@ services:
 
   # 后端服务
   backend:
+    image: network-monitor-backend:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -75,6 +76,7 @@ services:
 
   # 前端客户端服务
   frontend:
+    image: network-monitor-frontend:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
