@@ -1,3 +1,5 @@
+name: network-monitor
+
 services:
   # MySQL数据库服务
   db:
