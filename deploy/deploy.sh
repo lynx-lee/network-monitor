@@ -298,8 +298,17 @@ do_update() {
 
     # 拉取最新代码（如果是 git 仓库）
     if [ -d "$PROJECT_ROOT/.git" ]; then
-        log_info "拉取最新代码..."
-        git pull origin main || git pull origin master || log_warn "Git 拉取失败，跳过"
+        # 检查是否有可用的 remote
+        local remote
+        remote=$(git remote | head -1)
+        if [ -n "$remote" ]; then
+            local branch
+            branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+            log_info "拉取最新代码 ($remote/$branch)..."
+            git pull "$remote" "$branch" || log_warn "Git 拉取失败，跳过"
+        else
+            log_warn "未配置 Git remote，跳过代码拉取"
+        fi
     fi
 
     # 重新构建
