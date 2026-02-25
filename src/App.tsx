@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Layout, ConfigProvider, theme } from 'antd';
+import React, { useState, useCallback } from 'react';
+import { Layout, ConfigProvider, theme, Spin } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { ReactFlowProvider } from 'reactflow';
 import './App.css';
 import Sidebar from './components/Sidebar';
@@ -12,7 +13,7 @@ import useNetworkStore from './store/networkStore';
 import useConfigStore from './store/configStore';
 import useTheme from './hooks/useTheme';
 import type { DeviceType, NetworkDevice } from '../types';
-import './i18n/config'; // 引入i18n配置
+import './i18n/config';
 import websocketService from './services/websocketService';
 
 const { Sider, Content } = Layout;
@@ -71,19 +72,21 @@ function App() {
     setAlertPanelVisible(false);
   };
 
-  const handleAddDevice = (type: DeviceType) => {
-    // Add device at center of viewport
-    addDevice(type, window.innerWidth / 4, window.innerHeight / 2);
-  };
+  // #8: 新设备添加位置随机偏移，避免重叠
+  const deviceCountRef = React.useRef(0);
+  const handleAddDevice = useCallback((type: DeviceType) => {
+    const baseX = window.innerWidth / 4;
+    const baseY = window.innerHeight / 2;
+    const offset = deviceCountRef.current * 40;
+    deviceCountRef.current += 1;
+    addDevice(type, baseX + offset + Math.random() * 60 - 30, baseY + offset + Math.random() * 60 - 30);
+  }, [addDevice]);
 
-  const handleDeviceSelect = () => {
+  // #7: 只在用户明确双击设备时打开配置面板，单击仅选中
+  const handleDeviceDoubleClick = useCallback(() => {
     if (selectedDevice) {
       setConfigVisible(true);
     }
-  };
-
-  React.useEffect(() => {
-    handleDeviceSelect();
   }, [selectedDevice]);
 
   const handleConfigClose = () => {
@@ -138,29 +141,36 @@ function App() {
                 backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff',
                 transition: 'all 0.3s ease'
               }}
-              trigger={null} // 隐藏默认触发器
+              trigger={null}
             >
-              {/* 自定义触发器，放在Sider外部 */}
-              <div style={{ 
-                position: 'absolute',
-                top: 0,
-                left: collapsed ? '20px' : '260px',
-                color: currentTheme === 'dark' ? '#ffffff' : '#000000',
-                fontSize: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: '20px',
-                height: '64px',
-                transition: 'all 0.3s ease',
-                zIndex: 1000,
-                backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff',
-                borderRight: `1px solid ${currentTheme === 'dark' ? '#1f3a5f' : '#e8e8e8'}`
-              }}
-              onClick={() => setCollapsed(!collapsed)}>
-              {collapsed ? '>' : '<'}
-            </div>
+              {/* 美化的折叠触发器 */}
+              <div 
+                className="sidebar-collapse-trigger"
+                style={{ 
+                  position: 'absolute',
+                  top: '50%',
+                  right: '-16px',
+                  transform: 'translateY(-50%)',
+                  color: currentTheme === 'dark' ? '#a0b1c5' : '#595959',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: '16px',
+                  height: '48px',
+                  transition: 'all 0.3s ease',
+                  zIndex: 1000,
+                  backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff',
+                  borderRadius: '0 6px 6px 0',
+                  border: `1px solid ${currentTheme === 'dark' ? '#1f3a5f' : '#e8e8e8'}`,
+                  borderLeft: 'none',
+                  boxShadow: '2px 0 8px rgba(0, 0, 0, 0.06)',
+                }}
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              </div>
             
             <Sidebar 
               onAddDevice={handleAddDevice} 
@@ -178,18 +188,23 @@ function App() {
                   alignItems: 'center',
                   height: '100%',
                   backgroundColor: currentTheme === 'dark' ? '#051221' : '#f0f2f5',
-                  color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                  color: currentTheme === 'dark' ? '#ffffff' : '#000000',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 100,
                 }}>
-                  <div style={{
-                    textAlign: 'center',
-                    fontSize: '18px',
-                    fontWeight: 'bold'
-                  }}>
-                    正在加载网络数据...
+                  <div style={{ textAlign: 'center' }}>
+                    <Spin size="large" />
+                    <div style={{ marginTop: '16px', fontSize: '16px', color: currentTheme === 'dark' ? '#a0b1c5' : '#666' }}>
+                      正在加载网络数据...
+                    </div>
                   </div>
                 </div>
               )}
-              <NetworkCanvas />
+              <NetworkCanvas onDeviceDoubleClick={handleDeviceDoubleClick} />
             </Content>
           </Layout>
           <DeviceConfigPanel

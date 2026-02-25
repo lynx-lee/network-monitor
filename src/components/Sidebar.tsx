@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button, Divider, Space, Typography } from 'antd';
+import { Card, Button, Divider, Space, Typography, Tooltip } from 'antd';
 import {
   GatewayOutlined,
   CloudOutlined,
@@ -85,29 +85,30 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
       >
         <Space orientation="vertical" style={{ width: '100%' }}>
           {deviceTypes.map((device) => (
-            <Button
-              key={device.type}
-              type="default"
-              icon={device.icon}
-              block
-              onClick={() => onAddDevice(device.type)}
-              size={collapsed ? 'small' : 'large'}
-              style={{ 
-                justifyContent: collapsed ? 'center' : 'flex-start', 
-                fontSize: collapsed ? '12px' : '14px', 
-                padding: collapsed ? '8px' : '10px',
-                backgroundColor: isDark ? '#051221' : '#ffffff',
-                color: textColor,
-                border: cardBorder,
-              }}
-            >
-              {!collapsed && (
-                <Space orientation="horizontal" style={{ width: '100%', justifyContent: 'space-between' }}>
-                  {device.label}
-                  <PlusOutlined />
-                </Space>
-              )}
-            </Button>
+            <Tooltip key={device.type} title={collapsed ? device.label : ''} placement="right">
+              <Button
+                type="default"
+                icon={device.icon}
+                block
+                onClick={() => onAddDevice(device.type)}
+                size={collapsed ? 'small' : 'large'}
+                style={{ 
+                  justifyContent: collapsed ? 'center' : 'flex-start', 
+                  fontSize: collapsed ? '12px' : '14px', 
+                  padding: collapsed ? '8px' : '10px',
+                  backgroundColor: isDark ? '#051221' : '#ffffff',
+                  color: textColor,
+                  border: cardBorder,
+                }}
+              >
+                {!collapsed && (
+                  <Space orientation="horizontal" style={{ width: '100%', justifyContent: 'space-between' }}>
+                    {device.label}
+                    <PlusOutlined />
+                  </Space>
+                )}
+              </Button>
+            </Tooltip>
           ))}
         </Space>
       </Card>
@@ -157,7 +158,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
                 <span>{t('statusDown')}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '10px', height: '10px', backgroundColor: '#faad14', borderRadius: '50%' }}></div>
+                <div style={{ width: '10px', height: '10px', backgroundColor: '#d9d9d9', borderRadius: '50%' }}></div>
                 <span>{t('statusUnknown')}</span>
               </div>
             </div>
@@ -168,37 +169,41 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
       {/* Action Buttons */}
       <Space direction="vertical" style={{ width: '100%' }}>
         {/* System Config Button */}
-        <Button
-          type="primary"
-          block
-          onClick={onOpenConfigPanel}
-          size={collapsed ? 'small' : 'large'}
-          icon={collapsed ? <SettingOutlined /> : undefined}
-          style={{ 
-            justifyContent: collapsed ? 'center' : 'flex-start', 
-            fontSize: collapsed ? '12px' : '14px', 
-            padding: collapsed ? '8px' : '10px',
-          }}
-        >
-          {!collapsed && t('systemConfig')}
-        </Button>
+        <Tooltip title={collapsed ? t('systemConfig') : ''} placement="right">
+          <Button
+            type="primary"
+            block
+            onClick={onOpenConfigPanel}
+            size={collapsed ? 'small' : 'large'}
+            icon={collapsed ? <SettingOutlined /> : undefined}
+            style={{ 
+              justifyContent: collapsed ? 'center' : 'flex-start', 
+              fontSize: collapsed ? '12px' : '14px', 
+              padding: collapsed ? '8px' : '10px',
+            }}
+          >
+            {!collapsed && t('systemConfig')}
+          </Button>
+        </Tooltip>
         
         {/* Alert Panel Button */}
-        <Button
-          type="default"
-          block
-          onClick={onOpenAlertPanel}
-          size={collapsed ? 'small' : 'large'}
-          icon={collapsed ? <AlertOutlined /> : undefined}
-          style={{ 
-            justifyContent: collapsed ? 'center' : 'flex-start', 
-            fontSize: collapsed ? '12px' : '14px', 
-            padding: collapsed ? '8px' : '10px',
-            marginTop: collapsed ? '8px' : '0',
-          }}
-        >
-          {!collapsed && '告警信息'}
-        </Button>
+        <Tooltip title={collapsed ? t('alertInfo') : ''} placement="right">
+          <Button
+            type="default"
+            block
+            onClick={onOpenAlertPanel}
+            size={collapsed ? 'small' : 'large'}
+            icon={collapsed ? <AlertOutlined /> : undefined}
+            style={{ 
+              justifyContent: collapsed ? 'center' : 'flex-start', 
+              fontSize: collapsed ? '12px' : '14px', 
+              padding: collapsed ? '8px' : '10px',
+              marginTop: collapsed ? '8px' : '0',
+            }}
+          >
+            {!collapsed && t('alertInfo')}
+          </Button>
+        </Tooltip>
       </Space>
     </div>
   );

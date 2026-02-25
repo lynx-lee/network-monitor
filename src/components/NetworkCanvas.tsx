@@ -17,7 +17,11 @@ const nodeTypes = {
   networkDevice: NetworkDeviceNode,
 };
 
-const NetworkCanvas: React.FC = () => {
+interface NetworkCanvasProps {
+  onDeviceDoubleClick?: () => void;
+}
+
+const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) => {
   const { devices, connections, updateDevice, addConnection, deleteConnection } = useNetworkStore();
   const { showMiniMap, showControls, showBackground, lockCanvas, toggleCanvasLock } = useConfigStore();
   const currentTheme = useTheme();
@@ -48,11 +52,17 @@ const NetworkCanvas: React.FC = () => {
     [devices]
   );
 
+  // #14: Build device lookup Map for O(1) access in edges computation
+  const deviceMap = useMemo(() => {
+    const map = new Map<string, NetworkDevice>();
+    (devices || []).forEach(d => map.set(d.id, d));
+    return map;
+  }, [devices]);
+
   // Convert our connections to ReactFlow edges (memoized)
   const edges: Edge[] = useMemo(() => (connections || []).map((conn) => {
-    // Calculate line rate based on minimum port rate of both ends
-    const sourceDevice = (devices || []).find(d => d.id === conn.source);
-    const targetDevice = (devices || []).find(d => d.id === conn.target);
+    const sourceDevice = deviceMap.get(conn.source);
+    const targetDevice = deviceMap.get(conn.target);
     
     let lineRate = 100; // Default rate if devices or ports not found
     
@@ -109,7 +119,7 @@ const NetworkCanvas: React.FC = () => {
       // Add hover effect
       defaultInteractionMode: 'select',
     };
-  }), [connections, devices, currentTheme]);
+  }), [connections, deviceMap, currentTheme]);
 
   // Handle edge creation with duplicate check
   const onConnect = useCallback(
@@ -228,6 +238,14 @@ const NetworkCanvas: React.FC = () => {
     }
   }, [contextMenu.edge, deleteConnection, closeContextMenu]);
 
+  // Handle node double-click to open config panel
+  const onNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, _node: Node) => {
+      onDeviceDoubleClick?.();
+    },
+    [onDeviceDoubleClick]
+  );
+
   // Handle click outside to close context menu
   useEffect(() => {
     const handleClickOutside = () => {
@@ -261,6 +279,25 @@ const NetworkCanvas: React.FC = () => {
     });
   }, [lockCanvas, storeApi]);
 
+  // #13: Memoize MiniMap callbacks to prevent unnecessary re-renders
+  const miniMapNodeStrokeColor = useCallback((n: Node) => {
+    const device = deviceMap.get(n.id);
+    return device?.status === 'up' ? '#52c41a' : device?.status === 'warning' ? '#faad14' : '#ff4d4f';
+  }, [deviceMap]);
+
+  const miniMapNodeColor = useCallback((n: Node) => {
+    const device = deviceMap.get(n.id);
+    switch (device?.type) {
+      case 'router': return '#1890ff';
+      case 'switch': return '#52c41a';
+      case 'server': return '#faad14';
+      case 'wireless_router': return '#722ed1';
+      case 'ap': return '#eb2f96';
+      case 'optical_modem': return '#1890ff';
+      default: return '#faad14';
+    }
+  }, [deviceMap]);
+
   return (
     <div style={{ width: '100%', height: '100vh', display: 'flex', touchAction: 'none' }}>
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -272,6 +309,7 @@ const NetworkCanvas: React.FC = () => {
       onNodesChange={onNodesChange}
       onEdgesDelete={onEdgesDelete}
       onEdgeContextMenu={onEdgeContextMenu}
+      onNodeDoubleClick={onNodeDoubleClick}
       fitView
       // Enhanced interaction settings
       snapToGrid
@@ -323,29 +361,8 @@ const NetworkCanvas: React.FC = () => {
       />}
       {showMiniMap && (
         <MiniMap
-          nodeStrokeColor={(n) => {
-            const device = (devices || []).find((d) => d.id === n.id);
-            return device?.status === 'up' ? '#52c41a' : device?.status === 'warning' ? '#faad14' : '#ff4d4f';
-          }}
-          nodeColor={(n) => {
-            const device = (devices || []).find((d) => d.id === n.id);
-            switch (device?.type) {
-              case 'router':
-                return '#1890ff';
-              case 'switch':
-                return '#52c41a';
-              case 'server':
-                return '#faad14';
-              case 'wireless_router':
-                return '#722ed1';
-              case 'ap':
-                return '#eb2f96';
-              case 'optical_modem':
-                return '#1890ff';
-              default:
-                return '#faad14';
-            }
-          }}
+          nodeStrokeColor={miniMapNodeStrokeColor}
+          nodeColor={miniMapNodeColor}
           nodeBorderRadius={10}
           style={{ backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff', border: `1px solid ${currentTheme === 'dark' ? '#1f3a5f' : '#e0e0e0'}` }}
         />
@@ -363,11 +380,22 @@ const NetworkCanvas: React.FC = () => {
           color: currentTheme === 'dark' ? '#a0b1c5' : '#666666',
           zIndex: 10,
         }}>
-          <h3 style={{ margin: '0 0 12px 0', color: currentTheme === 'dark' ? '#ffffff' : '#000000' }}>
+          <div style={{ 
+            fontSize: '64px', 
+            marginBottom: '16px',
+            opacity: 0.3,
+            color: currentTheme === 'dark' ? '#1f3a5f' : '#d9d9d9',
+          }}>
+            🖧
+          </div>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: currentTheme === 'dark' ? '#ffffff' : '#000000' }}>
             暂无设备
           </h3>
-          <p style={{ margin: '0', fontSize: '14px' }}>
+          <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
             请从左侧菜单添加设备，开始构建您的网络拓扑
+          </p>
+          <p style={{ margin: 0, fontSize: '12px', opacity: 0.6 }}>
+            支持路由器、交换机、服务器等多种设备类型
           </p>
         </div>
       )}
@@ -382,11 +410,15 @@ const NetworkCanvas: React.FC = () => {
           left: contextMenu.x,
           backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff',
           color: currentTheme === 'dark' ? '#ffffff' : '#000000',
-          borderRadius: '4px',
-          boxShadow: currentTheme === 'dark' ? '0 2px 8px rgba(0, 0, 0, 0.5)' : '0 2px 8px rgba(0, 0, 0, 0.15)',
-          border: `1px solid ${currentTheme === 'dark' ? '#1f3a5f' : '#d9d9d9'}`,
+          borderRadius: '8px',
+          boxShadow: currentTheme === 'dark' 
+            ? '0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(31, 58, 95, 0.5)' 
+            : '0 6px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04)',
+          border: 'none',
           zIndex: 1000,
-          minWidth: '120px',
+          minWidth: '140px',
+          padding: '4px',
+          animation: 'fadeIn 0.15s ease',
         }}
       >
         <div
@@ -394,15 +426,19 @@ const NetworkCanvas: React.FC = () => {
             padding: '8px 12px',
             cursor: 'pointer',
             fontSize: '14px',
-            borderBottom: `1px solid ${currentTheme === 'dark' ? '#1f3a5f' : '#f0f0f0'}`,
+            borderRadius: '6px',
             backgroundColor: contextMenu.hovered ? (currentTheme === 'dark' ? '#18304a' : '#f5f5f5') : 'transparent',
-            transition: 'background-color 0.2s ease',
+            transition: 'background-color 0.15s ease',
+            color: '#ff4d4f',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
           onClick={handleDeleteConnection}
           onMouseEnter={() => setContextMenu(prev => ({ ...prev, hovered: true }))}
           onMouseLeave={() => setContextMenu(prev => ({ ...prev, hovered: false }))}
         >
-          删除连接
+          ✕ 删除连接
         </div>
       </div>
     )}

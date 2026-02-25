@@ -81,6 +81,12 @@ const resources = {
       pingInterval: 'Ping Interval',
       pingIntervalDesc: 'Ping Interval (milliseconds)',
       enterPingInterval: 'Enter ping interval',
+      
+      // 告警
+      alertInfo: 'Alerts',
+      alertDeviceSwitch: 'Device Alert Settings',
+      lockCanvas: 'Lock Canvas',
+      delete: 'Delete',
     }
   },
   zh: {
@@ -161,6 +167,12 @@ const resources = {
       pingInterval: 'Ping间隔',
       pingIntervalDesc: 'Ping间隔 (毫秒)',
       enterPingInterval: '输入Ping间隔',
+      
+      // 告警
+      alertInfo: '告警信息',
+      alertDeviceSwitch: '设备告警开关',
+      lockCanvas: '锁定画布',
+      delete: '删除',
     }
   }
 };

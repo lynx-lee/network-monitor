@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, Button, Space, InputNumber, Card, Divider } from 'antd';
+import { Modal, Form, Input, Select, Button, Space, InputNumber, Card, Divider, Popconfirm } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { NetworkDevice, DevicePort, VirtualMachine } from '../../types';
@@ -560,19 +560,27 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
             >
               {t('save')}
             </Button>
-            <Button 
-              type="primary" 
-              danger 
-              onClick={onDelete} 
-              style={{ 
-                borderRadius: '6px', 
-                padding: '8px 24px', 
-                fontSize: '16px',
-                transition: 'all 0.3s ease'
-              }}
+            <Popconfirm
+              title="确定要删除此设备吗？"
+              description="删除后无法恢复，设备的所有连接也将被移除。"
+              onConfirm={onDelete}
+              okText="确定删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
             >
-              {t('delete')}
-            </Button>
+              <Button 
+                type="primary" 
+                danger 
+                style={{ 
+                  borderRadius: '6px', 
+                  padding: '8px 24px', 
+                  fontSize: '16px',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {t('delete')}
+              </Button>
+            </Popconfirm>
           </Space>
         </Form.Item>
       </Form>

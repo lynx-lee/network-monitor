@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Table, Tabs, Switch, Space, Tag, Card } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { apiConfig } from '../config';
 import useNetworkStore from '../store/networkStore';
@@ -28,6 +29,7 @@ interface AlertPanelProps {
 const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   const { devices } = useNetworkStore();
   const currentTheme = useTheme();
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
   const [alertSettings, setAlertSettings] = useState<Record<string, boolean>>({});
@@ -207,7 +209,7 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   
   return (
     <Modal
-      title="告警信息"
+      title={t('alertInfo')}
       open={visible}
       onCancel={onClose}
       footer={null}
@@ -217,7 +219,7 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
       
       {/* Device alert settings */}
       <div style={{ marginTop: 24 }}>
-        <h3 style={{ color: isDark ? '#ffffff' : '#000000' }}>设备告警开关</h3>
+        <h3 style={{ color: isDark ? '#ffffff' : '#000000' }}>{t('alertDeviceSwitch')}</h3>
         <Space direction="vertical" style={{ width: '100%' }}>
           {sortDevicesByIp(devices || []).map(device => (
             <Card key={device.id} size="small">
