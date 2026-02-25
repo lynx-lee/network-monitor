@@ -16,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { NetworkDevice } from '../../types';
 import useNetworkStore from '../store/networkStore';
+import useConfigStore from '../store/configStore';
 import useTheme from '../hooks/useTheme';
 
 const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
@@ -23,6 +24,7 @@ const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
   selected,
 }) => {
   const { selectDevice } = useNetworkStore();
+  const compactNodes = useConfigStore((s) => s.compactNodes);
   const currentTheme = useTheme();
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -153,30 +155,32 @@ const NetworkDeviceNode: React.FC<NodeProps<NetworkDevice>> = ({
           )}
         </div>
 
-        {/* Port summary line */}
-        <div 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            marginTop: '6px',
-            fontSize: '12px',
-            color: currentTheme === 'dark' ? '#a0b1c5' : '#8c8c8c',
-            cursor: 'pointer',
-            padding: '2px 0',
-          }}
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-        >
-          <span>
-            {t('ports')}: {ports.length}
-            {portsUp > 0 && <span style={{ color: '#52c41a', marginLeft: '4px' }}>↑{portsUp}</span>}
-            {portsDown > 0 && <span style={{ color: '#ff4d4f', marginLeft: '4px' }}>↓{portsDown}</span>}
-          </span>
-          {expanded ? <UpOutlined style={{ fontSize: '10px' }} /> : <DownOutlined style={{ fontSize: '10px' }} />}
-        </div>
+        {/* Port summary line (compact mode) */}
+        {compactNodes && (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginTop: '6px',
+              fontSize: '12px',
+              color: currentTheme === 'dark' ? '#a0b1c5' : '#8c8c8c',
+              cursor: 'pointer',
+              padding: '2px 0',
+            }}
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          >
+            <span>
+              {t('ports')}: {ports.length}
+              {portsUp > 0 && <span style={{ color: '#52c41a', marginLeft: '4px' }}>↑{portsUp}</span>}
+              {portsDown > 0 && <span style={{ color: '#ff4d4f', marginLeft: '4px' }}>↓{portsDown}</span>}
+            </span>
+            {expanded ? <UpOutlined style={{ fontSize: '10px' }} /> : <DownOutlined style={{ fontSize: '10px' }} />}
+          </div>
+        )}
 
-        {/* Expandable port details */}
-        {expanded && (
+        {/* Expandable port details (compact: on click; full: always show) */}
+        {(!compactNodes || expanded) && (
           <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
             {ports.map((port) => (
               <div 

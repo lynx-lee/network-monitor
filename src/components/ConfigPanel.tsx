@@ -32,6 +32,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
     showControls,
     showBackground,
     lockCanvas,
+    compactNodes,
     enablePing,
     pingInterval,
     portRates,
@@ -57,6 +58,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
     toggleControls,
     toggleBackground,
     toggleCanvasLock,
+    toggleCompactNodes,
     togglePing,
     updatePingInterval,
     updatePortRates,
@@ -153,6 +155,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       <Switch checked={lockCanvas} onChange={toggleCanvasLock} />
                     </div>
                   </Card>
+                  <Card size="small">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{t('compactNodes')}</span>
+                      <Switch checked={compactNodes} onChange={toggleCompactNodes} />
+                    </div>
+                  </Card>
                 </Space>
               </div>
             ),
@@ -185,7 +193,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
 
                 <Card size="small">
                   <div style={{ marginBottom: '12px' }}>
-                    <span style={{ marginBottom: '8px', display: 'block' }}>Port Rate Options (Mbps)</span>
+                    <span style={{ marginBottom: '8px', display: 'block' }}>{t('portRateOptions')}</span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {[100, 1000, 2500, 10000].map((rate) => (
                         <label key={rate} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: portRates.includes(rate) ? '#e6f7ff' : '#f5f5f5', borderRadius: '4px', cursor: 'pointer' }}>
@@ -214,7 +222,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
             children: (
               <Card size="small" style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <span>启用 ServerChan 消息推送</span>
+                  <span>{t('enableServerChanPush')}</span>
                   <Switch checked={enableServerChan} onChange={toggleServerChan} />
                 </div>
                 
@@ -236,7 +244,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       onChange={(e) => updateServerChanSendKey(e.target.value)}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
-                      placeholder="请输入ServerChan SendKey"
+                      placeholder={t('enterServerChanSendKey')}
                     />
                   </div>
                   
@@ -247,18 +255,18 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       onChange={(e) => updateServerChanUid(e.target.value)}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
-                      placeholder="可选，根据ServerChan版本而定"
+                      placeholder={t('serverChanOptional')}
                     />
                   </div>
                   
                   <div>
-                    <span style={{ marginBottom: '8px', display: 'block' }}>ServerChan 密码</span>
+                    <span style={{ marginBottom: '8px', display: 'block' }}>{t('serverChanPassword')}</span>
                     <Input.Password
                       value={serverChanPassword}
                       onChange={(e) => updateServerChanPassword(e.target.value)}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
-                      placeholder="可选，根据ServerChan版本而定"
+                      placeholder={t('serverChanOptional')}
                     />
                   </div>
                 </div>
@@ -267,13 +275,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
           },
           {
             key: 'alert',
-            label: '告警阈值',
+            label: t('alertThreshold'),
             children: (
               <Card size="small" style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span>警告级 Ping 阈值 (ms)</span>
+                      <span>{t('warningPingThreshold')}</span>
                       <span style={{ color: '#faad14' }}>{warningPingThreshold} ms</span>
                     </div>
                     <InputNumber
@@ -289,7 +297,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span>严重级 Ping 阈值 (ms)</span>
+                      <span>{t('criticalPingThreshold')}</span>
                       <span style={{ color: '#ff4d4f' }}>{criticalPingThreshold} ms</span>
                     </div>
                     <InputNumber
@@ -305,8 +313,8 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span>每天最大告警次数</span>
-                      <span style={{ color: '#1890ff' }}>{alertMaxCountPerDay} 次</span>
+                      <span>{t('maxAlertsPerDay')}</span>
+                      <span style={{ color: '#1890ff' }}>{alertMaxCountPerDay} {t('times')}</span>
                     </div>
                     <InputNumber
                       value={alertMaxCountPerDay}
@@ -321,11 +329,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span>连续异常探测次数</span>
-                      <span style={{ color: '#722ed1' }}>{alertConsecutiveFailThreshold} 次</span>
+                      <span>{t('consecutiveFailCount')}</span>
+                      <span style={{ color: '#722ed1' }}>{alertConsecutiveFailThreshold} {t('times')}</span>
                     </div>
                     <div style={{ color: '#8c8c8c', fontSize: '12px', marginBottom: '8px' }}>
-                      设备连续探测异常达到此次数后才触发告警通知
+                      {t('consecutiveFailDesc')}
                     </div>
                     <InputNumber
                       value={alertConsecutiveFailThreshold}
@@ -343,11 +351,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
           },
           {
             key: 'template',
-            label: '消息模板',
+            label: t('messageTemplate'),
             children: (
               <Card size="small">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <span>消息模板列表</span>
+                  <span>{t('templateList')}</span>
                   <Button
                     type="primary"
                     icon={<PlusOutlined />}
@@ -357,7 +365,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       setTemplateModalVisible(true);
                     }}
                   >
-                    添加模板
+                    {t('addTemplate')}
                   </Button>
                 </div>
                 
@@ -365,19 +373,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   dataSource={messageTemplates}
                   columns={[
                     {
-                      title: '名称',
+                      title: t('name'),
                       dataIndex: 'name',
                       key: 'name',
                     },
                     {
-                      title: '级别',
+                      title: t('messageLevel'),
                       dataIndex: 'level',
                       key: 'level',
                       render: (level: 'info' | 'warning' | 'error') => {
                         const levelMap: Record<string, string> = {
-                          info: '信息',
-                          warning: '警告',
-                          error: '错误'
+                          info: t('levelInfo'),
+                          warning: t('levelWarning'),
+                          error: t('levelError')
                         };
                         return (
                           <span style={{ 
@@ -390,7 +398,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       }
                     },
                     {
-                      title: '状态',
+                      title: t('status'),
                       dataIndex: 'enabled',
                       key: 'enabled',
                       render: (enabled, record) => (
@@ -403,7 +411,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       )
                     },
                     {
-                      title: '操作',
+                      title: t('status'),
                       key: 'action',
                       render: (_, record) => (
                         <Space size="middle">
@@ -416,20 +424,20 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                               setTemplateModalVisible(true);
                             }}
                           >
-                            编辑
+                            {t('edit')}
                           </Button>
                           <Popconfirm
-                            title="确定要删除这个模板吗？"
+                            title={t('confirmDeleteTemplate')}
                             onConfirm={() => deleteMessageTemplate(record.id)}
-                            okText="确定"
-                            cancelText="取消"
+                            okText={t('confirm')}
+                            cancelText={t('cancel')}
                           >
                             <Button
                               type="link"
                               danger
                               icon={<DeleteOutlined />}
                             >
-                              删除
+                              {t('delete')}
                             </Button>
                           </Popconfirm>
                         </Space>
@@ -443,7 +451,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                 />
                 
                 <div style={{ padding: '12px', backgroundColor: '#f0f2f5', borderRadius: '4px' }}>
-                  <h5 style={{ marginBottom: '8px', color: '#1890ff' }}>可用标签变量：</h5>
+                  <h5 style={{ marginBottom: '8px', color: '#1890ff' }}>{t('availableVariables')}</h5>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {['deviceName', 'deviceIp', 'deviceStatus', 'pingTime', 'timestamp'].map((tag) => (
                       <span key={tag} style={{ 
@@ -467,7 +475,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
       
       {/* Message Template Modal */}
       <Modal
-        title={editingTemplate ? '编辑消息模板' : '添加消息模板'}
+        title={editingTemplate ? t('editTemplate') : t('addTemplate')}
         open={templateModalVisible}
         onCancel={() => setTemplateModalVisible(false)}
         footer={null}
@@ -490,22 +498,22 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
             <Col span={12}>
               <Form.Item
                 name="name"
-                label="模板名称"
-                rules={[{ required: true, message: '请输入模板名称' }]}
+                label={t('templateName')}
+                rules={[{ required: true, message: t('enterTemplateName') }]}
               >
-                <Input placeholder="请输入模板名称" />
+                <Input placeholder={t('enterTemplateName')} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="level"
-                label="消息级别"
-                rules={[{ required: true, message: '请选择消息级别' }]}
+                label={t('messageLevel')}
+                rules={[{ required: true, message: t('selectMessageLevel') }]}
               >
-                <Select placeholder="请选择消息级别">
-                  <Option value="info">信息</Option>
-                  <Option value="warning">警告</Option>
-                  <Option value="error">错误</Option>
+                <Select placeholder={t('selectMessageLevel')}>
+                  <Option value="info">{t('levelInfo')}</Option>
+                  <Option value="warning">{t('levelWarning')}</Option>
+                  <Option value="error">{t('levelError')}</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -513,26 +521,26 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
           
           <Form.Item
             name="title"
-            label="消息标题"
-            rules={[{ required: true, message: '请输入消息标题' }]}
+            label={t('messageTitle')}
+            rules={[{ required: true, message: t('enterMessageTitle') }]}
           >
-            <Input placeholder="请输入消息标题" />
+            <Input placeholder={t('enterMessageTitle')} />
           </Form.Item>
           
           <Form.Item
             name="content"
-            label="消息内容"
-            rules={[{ required: true, message: '请输入消息内容' }]}
+            label={t('messageContent')}
+            rules={[{ required: true, message: t('enterMessageContent') }]}
           >
             <Input.TextArea
               rows={6}
-              placeholder="请输入消息内容，支持使用{{deviceName}}、{{deviceIp}}等标签变量"
+              placeholder={t('enterMessageContent')}
             />
           </Form.Item>
           
           <Form.Item
             name="enabled"
-            label="启用模板"
+            label={t('enableTemplate')}
             valuePropName="checked"
           >
             <Switch defaultChecked />
@@ -540,9 +548,9 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
           
           <Form.Item style={{ textAlign: 'right' }}>
             <Space size="middle">
-              <Button onClick={() => setTemplateModalVisible(false)}>取消</Button>
+              <Button onClick={() => setTemplateModalVisible(false)}>{t('cancel')}</Button>
               <Button type="primary" htmlType="submit">
-                {editingTemplate ? '更新' : '添加'}
+                {editingTemplate ? t('update') : t('add')}
               </Button>
             </Space>
           </Form.Item>

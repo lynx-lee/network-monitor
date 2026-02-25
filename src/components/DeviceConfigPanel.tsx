@@ -218,12 +218,12 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
 
         <Form.Item
           name="ip"
-          label="IP地址"
+          label={t('ipAddress')}
           rules={[
-            { required: false, message: '请输入IP地址！' },
+            { required: false, message: t('pleaseInputIpAddress') },
             { 
               pattern: /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
-              message: '请输入有效的IPv4地址（例如：192.168.1.1）',
+              message: t('invalidIpv4'),
               validateTrigger: 'onBlur',
               transform: (value) => value?.trim() || ''
             }
@@ -231,7 +231,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
           style={{ color: textColor }}
         >
           <Input 
-            placeholder="输入IP地址（可选）"
+            placeholder={t('enterIpOptional')}
             size="large"
             style={{ 
               fontSize: '16px', 
@@ -245,12 +245,12 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
 
         <Form.Item
           name="mac"
-          label="MAC地址"
-          rules={[{ required: false, message: '请输入MAC地址！' }]}
+          label={t('macAddress')}
+          rules={[{ required: false, message: t('pleaseInputMacAddress') }]}
           style={{ color: textColor }}
         >
           <Input 
-            placeholder="输入MAC地址（可选）"
+            placeholder={t('enterMacOptional')}
             size="large"
             style={{ 
               fontSize: '16px', 
@@ -420,10 +420,10 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
         {/* Virtual Machines Configuration - only for VM Host devices */}
         {device.type === 'vm_host' && (
           <>
-            <Divider style={{ backgroundColor: borderColor }}>虚拟机配置</Divider>
+            <Divider style={{ backgroundColor: borderColor }}>{t('vmConfiguration')}</Divider>
             
             <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: textColor, fontSize: '16px' }}>虚拟机列表</h3>
+              <h3 style={{ margin: 0, color: textColor, fontSize: '16px' }}>{t('vmList')}</h3>
               <Button
                 type="dashed"
                 icon={<PlusOutlined />}
@@ -436,7 +436,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                   fontSize: '14px'
                 }}
               >
-                添加虚拟机
+                {t('addVm')}
               </Button>
             </Space>
             
@@ -472,14 +472,14 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                       onClick={() => removeVirtualMachine(index)}
                       style={{ padding: '0 8px', fontSize: '12px', fontWeight: 'bold' }}
                     >
-                      删除
+                      {t('delete')}
                     </Button>
                     
-                    <Form.Item label="虚拟机名称" style={{ marginBottom: 0, flex: 1, color: textColor }}>
+                    <Form.Item label={t('vmName')} style={{ marginBottom: 0, flex: 1, color: textColor }}>
                       <Input
                         value={vm.name}
                         onChange={(e) => updateVirtualMachine(index, 'name', e.target.value)}
-                        placeholder="输入虚拟机名称"
+                        placeholder={t('enterVmName')}
                         style={{ 
                           width: '100%', 
                           borderRadius: '6px',
@@ -492,13 +492,13 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                     </Form.Item>
                     
                     <Form.Item 
-                      label="IP地址" 
+                      label={t('ipAddress')} 
                       style={{ marginBottom: 0, flex: 1.5, color: textColor }}
                       rules={[
-                        { required: true, message: '请输入虚拟机IP地址！' },
+                        { required: true, message: t('pleaseInputVmIp') },
                         { 
                           pattern: /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
-                          message: '请输入有效的IPv4地址（例如：192.168.1.1）',
+                          message: t('invalidIpv4'),
                           validateTrigger: 'onBlur'
                         }
                       ]}
@@ -506,7 +506,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                       <Input
                         value={vm.ip}
                         onChange={(e) => updateVirtualMachine(index, 'ip', e.target.value)}
-                        placeholder="输入虚拟机IP地址"
+                        placeholder={t('enterVmIp')}
                         style={{ 
                           width: '100%', 
                           borderRadius: '6px',
@@ -528,7 +528,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                   padding: '20px',
                   fontSize: '14px'
                 }}>
-                  暂无虚拟机，点击"添加虚拟机"按钮创建
+                  {t('noVmHint')}
                 </div>
               )}
             </div>
@@ -561,11 +561,11 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
               {t('save')}
             </Button>
             <Popconfirm
-              title="确定要删除此设备吗？"
-              description="删除后无法恢复，设备的所有连接也将被移除。"
+              title={t('confirmDeleteDevice')}
+              description={t('deleteDeviceWarning')}
               onConfirm={onDelete}
-              okText="确定删除"
-              cancelText="取消"
+              okText={t('confirmDelete')}
+              cancelText={t('cancel')}
               okButtonProps={{ danger: true }}
             >
               <Button 

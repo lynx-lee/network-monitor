@@ -29,6 +29,7 @@ interface ConfigStore {
   showControls: boolean;
   showBackground: boolean;
   lockCanvas: boolean; // Whether to lock the canvas
+  compactNodes: boolean; // Whether to show compact (collapsed) device nodes
   enablePing: boolean; // Whether to enable ping探测
   pingInterval: number; // in milliseconds
   portRates: number[]; // Port rate options in Mbps
@@ -69,6 +70,7 @@ interface ConfigStore {
   toggleControls: () => Promise<void>;
   toggleBackground: () => Promise<void>;
   toggleCanvasLock: () => Promise<void>;
+  toggleCompactNodes: () => Promise<void>;
   togglePing: () => Promise<void>;
   updatePingInterval: (interval: number) => Promise<void>;
   updatePortRates: (rates: number[]) => Promise<void>;
@@ -111,6 +113,7 @@ const useConfigStore = create<ConfigStore>()(
       showControls: true,
       showBackground: true,
       lockCanvas: false, // Default: canvas is unlocked
+      compactNodes: true, // Default: nodes are compact (collapsed)
       enablePing: true, // Default: enable ping探测
       pingInterval: 5000, // Default ping interval: 5 seconds
       portRates: [100, 1000, 2500, 10000], // Default port rates: 100Mbps, 1Gbps, 2.5Gbps, 10Gbps
@@ -199,6 +202,10 @@ const useConfigStore = create<ConfigStore>()(
   toggleCanvasLock: async () => {
     const { lockCanvas } = get();
     await get().updateConfigValue('lockCanvas', !lockCanvas);
+  },
+  toggleCompactNodes: async () => {
+    const { compactNodes } = get();
+    await get().updateConfigValue('compactNodes', !compactNodes);
   },
   togglePing: async () => {
     const { enablePing } = get();

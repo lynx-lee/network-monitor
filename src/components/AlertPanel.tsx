@@ -102,29 +102,29 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   // Alert columns
   const alertColumns = [
     {
-      title: '设备名称',
+      title: t('deviceName'),
       dataIndex: 'device_name',
       key: 'device_name',
     },
     {
-      title: '设备IP',
+      title: t('deviceIp'),
       dataIndex: 'device_ip',
       key: 'device_ip',
     },
     {
-      title: '告警类型',
+      title: t('alertType'),
       dataIndex: 'alert_type',
       key: 'alert_type',
       render: (type: string) => {
         const typeMap: Record<string, string> = {
-          'status': '状态变化',
-          'ping': 'Ping阈值'
+          'status': t('statusChange'),
+          'ping': t('pingThreshold')
         };
         return typeMap[type] || type;
       }
     },
     {
-      title: '告警级别',
+      title: t('alertLevel'),
       dataIndex: 'alert_level',
       key: 'alert_level',
       render: (level: string) => (
@@ -132,21 +132,21 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
       )
     },
     {
-      title: '告警信息',
+      title: t('alertMessage'),
       dataIndex: 'message',
       key: 'message',
       ellipsis: true,
     },
     {
-      title: '发送状态',
+      title: t('sendStatus'),
       dataIndex: 'is_sent',
       key: 'is_sent',
       render: (sent: boolean) => (
-        <Tag color={sent ? 'green' : 'red'}>{sent ? '已发送' : '未发送'}</Tag>
+        <Tag color={sent ? 'green' : 'red'}>{sent ? t('sent') : t('notSent')}</Tag>
       )
     },
     {
-      title: '创建时间',
+      title: t('createdAt'),
       dataIndex: 'created_at',
       key: 'created_at',
       render: (time: string) => new Date(time).toLocaleString(),
@@ -173,7 +173,7 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
   const tabItems = [
     {
       key: 'all',
-      label: '所有告警',
+      label: t('allAlerts'),
       children: (
         <Table
           dataSource={alerts}
@@ -227,13 +227,13 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ visible, onClose }) => {
                 <Space>
                   <span>{device.label}</span>
                   <Tag color="gray">{device.type}</Tag>
-                  <Tag>{device.ip || '无IP'}</Tag>
+                  <Tag>{device.ip || t('noIp')}</Tag>
                 </Space>
                 <Switch
                   checked={alertSettings[device.id] !== false}
                   onChange={(checked) => updateAlertSetting(device.id, checked)}
-                  checkedChildren="开启"
-                  unCheckedChildren="关闭"
+                  checkedChildren={t('enabled')}
+                  unCheckedChildren={t('disabled')}
                 />
               </div>
             </Card>

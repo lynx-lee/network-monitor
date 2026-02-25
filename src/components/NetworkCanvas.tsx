@@ -11,6 +11,7 @@ import NetworkDeviceNode from './NetworkDeviceNode';
 import useNetworkStore from '../store/networkStore';
 import useConfigStore from '../store/configStore';
 import useTheme from '../hooks/useTheme';
+import { useTranslation } from 'react-i18next';
 import type { NetworkDevice } from '../../types';
 
 const nodeTypes = {
@@ -25,6 +26,7 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
   const { devices, connections, updateDevice, addConnection, deleteConnection } = useNetworkStore();
   const { showMiniMap, showControls, showBackground, lockCanvas, toggleCanvasLock } = useConfigStore();
   const currentTheme = useTheme();
+  const { t } = useTranslation();
   
   // State for right-click menu
   const [contextMenu, setContextMenu] = useState<{
@@ -389,13 +391,13 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
             🖧
           </div>
           <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: currentTheme === 'dark' ? '#ffffff' : '#000000' }}>
-            暂无设备
+            {t('noDevices')}
           </h3>
           <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
-            请从左侧菜单添加设备，开始构建您的网络拓扑
+            {t('noDevicesHint')}
           </p>
           <p style={{ margin: 0, fontSize: '12px', opacity: 0.6 }}>
-            支持路由器、交换机、服务器等多种设备类型
+            {t('noDevicesSubHint')}
           </p>
         </div>
       )}
@@ -438,7 +440,7 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
           onMouseEnter={() => setContextMenu(prev => ({ ...prev, hovered: true }))}
           onMouseLeave={() => setContextMenu(prev => ({ ...prev, hovered: false }))}
         >
-          ✕ 删除连接
+          ✕ {t('deleteConnection')}
         </div>
       </div>
     )}
