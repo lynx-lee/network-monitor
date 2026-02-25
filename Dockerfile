@@ -43,10 +43,11 @@ COPY --from=frontend-builder /app/dist ./dist
 
 # 复制后端依赖和代码（包含tsx）
 COPY --from=backend-builder /app/node_modules ./node_modules
-COPY --from=backend-builder /app/src ./src
+COPY --from=backend-builder /app/server ./server
+COPY --from=backend-builder /app/types ./types
 COPY --from=backend-builder /app/package.json ./
 COPY --from=backend-builder /app/tsconfig.json ./
-COPY --from=backend-builder /app/tsconfig.node.json ./
+COPY --from=backend-builder /app/tsconfig.server.json ./
 
 # Environment variables should be injected at runtime via docker-compose or docker run
 # Do NOT bake .env files into the image

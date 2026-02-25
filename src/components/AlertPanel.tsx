@@ -4,7 +4,7 @@ import { EyeOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { apiConfig } from '../config';
 import useNetworkStore from '../store/networkStore';
-import type { NetworkDevice } from '../types';
+import type { NetworkDevice } from '../../types';
 
 const { TabPane } = Tabs;
 

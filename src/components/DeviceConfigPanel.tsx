@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Button, Space, InputNumber, Card, Divider } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import type { NetworkDevice, DevicePort, VirtualMachine } from '../types';
+import type { NetworkDevice, DevicePort, VirtualMachine } from '../../types';
 import useConfigStore from '../store/configStore';
 
 const { Option } = Select;

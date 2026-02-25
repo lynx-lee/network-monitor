@@ -1,7 +1,7 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import http from 'http';
 import cors from 'cors';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import dotenv from 'dotenv';
 import { spawn } from 'child_process';
 import {
@@ -42,7 +42,7 @@ const app = express();
 
 // CORS configuration - restrict origin in production
 const allowedOrigins = process.env.CLIENT_ORIGIN
-  ? process.env.CLIENT_ORIGIN.split(',').map(o => o.trim())
+  ? process.env.CLIENT_ORIGIN.split(',').map((o: string) => o.trim())
   : ['http://localhost:5173', 'http://localhost:8090'];
 
 app.use(cors({
@@ -77,9 +77,9 @@ const getIpByMac = async (macAddress: string): Promise<string | null> => {
       const proc = spawn('arp', ['-a']);
       let stdout = '';
       let stderr = '';
-      proc.stdout.on('data', (data) => { stdout += data.toString(); });
-      proc.stderr.on('data', (data) => { stderr += data.toString(); });
-      proc.on('close', (code) => {
+      proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+      proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+      proc.on('close', (code: number | null) => {
         if (code !== 0) {
           reject(new Error(`arp exited with code ${code}: ${stderr}`));
           return;
@@ -134,13 +134,13 @@ const pingDevice = async (ip: string, timeout: number = 2000): Promise<{ isUp?: 
         reject(new Error('Ping timeout'));
       }, timeout + 1000);
 
-      proc.stdout.on('data', (data) => { stdoutData += data.toString(); });
-      proc.stderr.on('data', (data) => { stderrData += data.toString(); });
-      proc.on('close', (code) => {
+      proc.stdout.on('data', (data: Buffer) => { stdoutData += data.toString(); });
+      proc.stderr.on('data', (data: Buffer) => { stderrData += data.toString(); });
+      proc.on('close', (_code: number | null) => {
         clearTimeout(timer);
         resolve({ stdout: stdoutData, stderr: stderrData });
       });
-      proc.on('error', (err) => {
+      proc.on('error', (err: Error) => {
         clearTimeout(timer);
         reject(err);
       });
@@ -326,6 +326,11 @@ const collectDeviceData = async (config?: any) => {
   return updatedDevices;
 };
 
+// Consecutive failure counter for each device (deviceId -> consecutive fail count)
+const deviceFailCounters: Map<string, number> = new Map();
+// Track which devices have already triggered an alert (to avoid repeated alerts)
+const deviceAlertTriggered: Map<string, boolean> = new Map();
+
 // Function to start or restart device data collection with current ping interval
 let pingIntervalId: NodeJS.Timeout | null = null;
 
@@ -356,55 +361,69 @@ const startDeviceDataCollection = async () => {
       // Get alert thresholds from config
       const warningPingThreshold = config.warningPingThreshold || 100;
       const criticalPingThreshold = config.criticalPingThreshold || 200;
+      const consecutiveFailThreshold = config.alertConsecutiveFailThreshold || 5;
       
-      // Check for alerts
+      // Check for alerts with consecutive failure logic
       for (const updatedDevice of updatedDevices) {
         // Find current device in the database
         const currentDevice = (currentDevices as any[]).find((d: any) => d.id === updatedDevice.id);
         
         if (currentDevice) {
-          // Check if status has changed to down
-          if (currentDevice.status !== 'down' && updatedDevice.status === 'down') {
-            // Send device status alert
-            logger('info', `Device ${updatedDevice.label} is down, sending alert`);
-            await serverChanService.sendDeviceStatusAlert(
-              updatedDevice.id,
-              updatedDevice.type,
-              updatedDevice.label,
-              updatedDevice.ip,
-              updatedDevice.status
-            );
-          }
+          const deviceId = updatedDevice.id;
+          const isDown = updatedDevice.status === 'down';
+          const isPingWarning = updatedDevice.pingTime !== undefined && updatedDevice.pingTime > warningPingThreshold;
+          const isPingCritical = updatedDevice.pingTime !== undefined && updatedDevice.pingTime > criticalPingThreshold;
+          const isAbnormal = isDown || isPingCritical || isPingWarning;
           
-          // Check ping time if available
-          if (updatedDevice.pingTime !== undefined) {
-            // Check if pingTime has exceeded critical threshold
-            if (updatedDevice.pingTime > criticalPingThreshold) {
-              // Only send alert if previous pingTime was not exceeding critical threshold
-              if (currentDevice.pingTime === undefined || currentDevice.pingTime <= criticalPingThreshold) {
-                // Send critical ping alert
-                logger('info', `Device ${updatedDevice.label} ping time ${updatedDevice.pingTime}ms exceeds critical threshold ${criticalPingThreshold}ms, sending alert`);
+          if (isAbnormal) {
+            // Increment consecutive failure counter
+            const currentCount = (deviceFailCounters.get(deviceId) || 0) + 1;
+            deviceFailCounters.set(deviceId, currentCount);
+            
+            logger('debug', `Device ${updatedDevice.label} consecutive fail count: ${currentCount}/${consecutiveFailThreshold}`);
+            
+            // Only trigger alert when consecutive failures reach threshold and not already alerted
+            if (currentCount >= consecutiveFailThreshold && !deviceAlertTriggered.get(deviceId)) {
+              deviceAlertTriggered.set(deviceId, true);
+              
+              if (isDown) {
+                logger('info', `Device ${updatedDevice.label} has been down for ${currentCount} consecutive checks, sending alert`);
+                await serverChanService.sendDeviceStatusAlert(
+                  updatedDevice.id,
+                  updatedDevice.type,
+                  updatedDevice.label,
+                  updatedDevice.ip,
+                  updatedDevice.status
+                );
+              } else if (isPingCritical) {
+                logger('info', `Device ${updatedDevice.label} ping time ${updatedDevice.pingTime}ms exceeded critical threshold for ${currentCount} consecutive checks, sending alert`);
                 await serverChanService.sendDevicePingCritical(
                   updatedDevice.id,
                   updatedDevice.type,
                   updatedDevice.label,
                   updatedDevice.ip,
-                  updatedDevice.pingTime
+                  updatedDevice.pingTime!
                 );
-              }
-            } else if (updatedDevice.pingTime > warningPingThreshold) {
-              // Only send alert if previous pingTime was not exceeding warning threshold
-              if (currentDevice.pingTime === undefined || currentDevice.pingTime <= warningPingThreshold) {
-                // Send warning ping alert
-                logger('info', `Device ${updatedDevice.label} ping time ${updatedDevice.pingTime}ms exceeds warning threshold ${warningPingThreshold}ms, sending alert`);
+              } else if (isPingWarning) {
+                logger('info', `Device ${updatedDevice.label} ping time ${updatedDevice.pingTime}ms exceeded warning threshold for ${currentCount} consecutive checks, sending alert`);
                 await serverChanService.sendDevicePingWarning(
                   updatedDevice.id,
                   updatedDevice.type,
                   updatedDevice.label,
                   updatedDevice.ip,
-                  updatedDevice.pingTime
+                  updatedDevice.pingTime!
                 );
               }
+            }
+          } else {
+            // Device recovered, reset counters
+            if (deviceFailCounters.has(deviceId)) {
+              const prevCount = deviceFailCounters.get(deviceId) || 0;
+              if (prevCount > 0) {
+                logger('debug', `Device ${updatedDevice.label} recovered after ${prevCount} consecutive failures, resetting counter`);
+              }
+              deviceFailCounters.set(deviceId, 0);
+              deviceAlertTriggered.set(deviceId, false);
             }
           }
         }
@@ -429,7 +448,7 @@ const startDeviceDataCollection = async () => {
 };
 
 // Handle config update to restart interval if pingInterval changes
-app.post('/api/config', async (req, res) => {
+app.post('/api/config', async (req: Request, res: Response) => {
   try {
     const config = req.body;
     for (const [key, value] of Object.entries(config)) {
@@ -450,7 +469,7 @@ app.post('/api/config', async (req, res) => {
 });
 
 // Handle client connections
-io.on('connection', async (socket) => {
+io.on('connection', async (socket: Socket) => {
   logger('info', 'Client connected', { socketId: socket.id });
   
   // Send initial data to new clients
@@ -464,7 +483,7 @@ io.on('connection', async (socket) => {
   });
   
   // Handle config update from client
-  socket.on('configUpdate', async (config) => {
+  socket.on('configUpdate', async (config: Record<string, unknown>) => {
     try {
       // Save config to database
       for (const [key, value] of Object.entries(config)) {
@@ -482,7 +501,7 @@ io.on('connection', async (socket) => {
   });
   
   // Handle device update from client
-  socket.on('deviceUpdate', async (device) => {
+  socket.on('deviceUpdate', async (device: Record<string, unknown>) => {
     try {
       logger('info', 'Received device update via Socket.io', device);
       // Save device to database
@@ -500,7 +519,7 @@ io.on('connection', async (socket) => {
 // API endpoints for config management
 
 // Get all config
-app.get('/api/config', async (_req, res) => {
+app.get('/api/config', async (_req: Request, res: Response) => {
   try {
     const config = await getAllConfig();
     res.json(config);
@@ -512,7 +531,7 @@ app.get('/api/config', async (_req, res) => {
 // API endpoints for devices
 
 // Get all devices
-app.get('/api/devices', async (_req, res) => {
+app.get('/api/devices', async (_req: Request, res: Response) => {
   try {
     const devices = await getAllDevices();
     res.json(devices);
@@ -522,7 +541,7 @@ app.get('/api/devices', async (_req, res) => {
 });
 
 // Save device
-app.post('/api/devices', async (req, res) => {
+app.post('/api/devices', async (req: Request, res: Response) => {
   const device = req.body;
   try {
     logger('debug', 'API received device to save', { deviceId: device.id });
@@ -536,7 +555,7 @@ app.post('/api/devices', async (req, res) => {
 });
 
 // Delete device
-app.delete('/api/devices/:id', async (req, res) => {
+app.delete('/api/devices/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await deleteDevice(id);
@@ -547,12 +566,12 @@ app.delete('/api/devices/:id', async (req, res) => {
 });
 
 // Add a simple API endpoint for testing
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'WebSocket server is running' });
 });
 
 // Add detailed health check endpoint
-app.get('/api/health/detailed', async (_req, res) => {
+app.get('/api/health/detailed', async (_req: Request, res: Response) => {
   try {
     const systemMetrics = monitoringService.getCurrentMetrics();
     const businessMetrics = businessMonitoringService.getAllMetrics();
@@ -607,7 +626,7 @@ app.get('/api/health/detailed', async (_req, res) => {
 });
 
 // Error logging endpoint
-app.post('/api/errors/log', async (req, res) => {
+app.post('/api/errors/log', async (req: Request, res: Response) => {
   try {
     const { error, component, stackTrace, userAgent, url } = req.body;
     logger('error', 'Frontend error reported', { 
@@ -625,7 +644,7 @@ app.post('/api/errors/log', async (req, res) => {
 });
 
 // Alert management endpoints
-app.get('/api/alerts/rules', (_req, res) => {
+app.get('/api/alerts/rules', (_req: Request, res: Response) => {
   try {
     const rules = alertService.getRules();
     res.json(rules);
@@ -634,7 +653,7 @@ app.get('/api/alerts/rules', (_req, res) => {
   }
 });
 
-app.get('/api/alerts/history', (req, res) => {
+app.get('/api/alerts/history', (req: Request, res: Response) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const alerts = alertService.getAlerts(limit);
@@ -644,7 +663,7 @@ app.get('/api/alerts/history', (req, res) => {
   }
 });
 
-app.get('/api/alerts/stats', (_req, res) => {
+app.get('/api/alerts/stats', (_req: Request, res: Response) => {
   try {
     const stats = alertService.getAlertStats();
     res.json(stats);
@@ -653,7 +672,7 @@ app.get('/api/alerts/stats', (_req, res) => {
   }
 });
 
-app.post('/api/alerts/rules/:ruleId/enable', (req, res) => {
+app.post('/api/alerts/rules/:ruleId/enable', (req: Request, res: Response) => {
   try {
     const { ruleId } = req.params;
     alertService.enableRule(ruleId);
@@ -663,7 +682,7 @@ app.post('/api/alerts/rules/:ruleId/enable', (req, res) => {
   }
 });
 
-app.post('/api/alerts/rules/:ruleId/disable', (req, res) => {
+app.post('/api/alerts/rules/:ruleId/disable', (req: Request, res: Response) => {
   try {
     const { ruleId } = req.params;
     alertService.disableRule(ruleId);
@@ -676,7 +695,7 @@ app.post('/api/alerts/rules/:ruleId/disable', (req, res) => {
 // API endpoints for connections
 
 // Get all connections
-app.get('/api/connections', async (_req, res) => {
+app.get('/api/connections', async (_req: Request, res: Response) => {
   try {
     const connections = await getAllConnections();
     res.json(connections);
@@ -686,7 +705,7 @@ app.get('/api/connections', async (_req, res) => {
 });
 
 // Save connection with duplicate check
-app.post('/api/connections', async (req, res) => {
+app.post('/api/connections', async (req: Request, res: Response) => {
   try {
     const connection = req.body;
     const existingConnections = await getAllConnections();
@@ -716,7 +735,7 @@ app.post('/api/connections', async (req, res) => {
 });
 
 // Delete connection
-app.delete('/api/connections/:id', async (req, res) => {
+app.delete('/api/connections/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await deleteConnection(id);
@@ -729,7 +748,7 @@ app.delete('/api/connections/:id', async (req, res) => {
 // Alert API endpoints
 
 // Get all alerts
-app.get('/api/alerts', async (req, res) => {
+app.get('/api/alerts', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
     let alerts;
@@ -745,7 +764,7 @@ app.get('/api/alerts', async (req, res) => {
 });
 
 // Save alert
-app.post('/api/alerts', async (req, res) => {
+app.post('/api/alerts', async (req: Request, res: Response) => {
   try {
     const alert = req.body;
     const success = await saveAlert(alert);
@@ -756,7 +775,7 @@ app.post('/api/alerts', async (req, res) => {
 });
 
 // Get all device alert settings
-app.get('/api/alerts/settings', async (_req, res) => {
+app.get('/api/alerts/settings', async (_req: Request, res: Response) => {
   try {
     const settings = await getAllDeviceAlertSettings();
     res.json(settings);
@@ -766,7 +785,7 @@ app.get('/api/alerts/settings', async (_req, res) => {
 });
 
 // Get device alert settings
-app.get('/api/alerts/settings/:deviceId', async (req, res) => {
+app.get('/api/alerts/settings/:deviceId', async (req: Request, res: Response) => {
   try {
     const { deviceId } = req.params;
     const enabled = await getDeviceAlertEnabled(deviceId);
@@ -777,7 +796,7 @@ app.get('/api/alerts/settings/:deviceId', async (req, res) => {
 });
 
 // Update device alert settings
-app.post('/api/alerts/settings/:deviceId', async (req, res) => {
+app.post('/api/alerts/settings/:deviceId', async (req: Request, res: Response) => {
   try {
     const { deviceId } = req.params;
     const { enabled } = req.body;
@@ -789,7 +808,7 @@ app.post('/api/alerts/settings/:deviceId', async (req, res) => {
 });
 
 // Get alerts by device ID
-app.get('/api/alerts/:deviceId', async (req, res) => {
+app.get('/api/alerts/:deviceId', async (req: Request, res: Response) => {
   try {
     const { deviceId } = req.params;
     const alerts = await getAlertsByDevice(deviceId);

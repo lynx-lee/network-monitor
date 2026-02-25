@@ -13,7 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import useConfigStore from '../store/configStore';
-import type { DeviceType } from '../types';
+import type { DeviceType } from '../../types';
 
 const { Title, Text } = Typography;
 

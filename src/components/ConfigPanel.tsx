@@ -63,6 +63,8 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
     updateCriticalPingThreshold,
     alertMaxCountPerDay,
     updateAlertMaxCountPerDay,
+    alertConsecutiveFailThreshold,
+    updateAlertConsecutiveFailThreshold,
     
     // Message template actions
     addMessageTemplate,
@@ -292,6 +294,25 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                 min={1}
                 max={1000}
                 step={10}
+                size="large"
+              />
+            </div>
+            
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span>连续异常探测次数</span>
+                <span style={{ color: '#722ed1' }}>{alertConsecutiveFailThreshold} 次</span>
+              </div>
+              <div style={{ color: '#8c8c8c', fontSize: '12px', marginBottom: '8px' }}>
+                设备连续探测异常达到此次数后才触发告警通知
+              </div>
+              <InputNumber
+                value={alertConsecutiveFailThreshold}
+                onChange={(value) => value && updateAlertConsecutiveFailThreshold(value)}
+                style={{ width: '100%' }}
+                min={1}
+                max={100}
+                step={1}
                 size="large"
               />
             </div>

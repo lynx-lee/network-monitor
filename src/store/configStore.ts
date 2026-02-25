@@ -47,6 +47,9 @@ interface ConfigStore {
   // Alert count limit
   alertMaxCountPerDay: number; // Maximum number of alerts per day
   
+  // Consecutive failure threshold
+  alertConsecutiveFailThreshold: number; // Number of consecutive failures before alert
+  
   // Message templates
   messageTemplates: MessageTemplate[]; // Message templates
   
@@ -81,6 +84,7 @@ interface ConfigStore {
   updateWarningPingThreshold: (threshold: number) => Promise<void>;
   updateCriticalPingThreshold: (threshold: number) => Promise<void>;
   updateAlertMaxCountPerDay: (count: number) => Promise<void>;
+  updateAlertConsecutiveFailThreshold: (count: number) => Promise<void>;
   
   // Message template actions
   addMessageTemplate: (template: Omit<MessageTemplate, 'id'>) => Promise<void>;
@@ -124,6 +128,9 @@ const useConfigStore = create<ConfigStore>()(
       
       // Alert count limit
       alertMaxCountPerDay: 100, // Default maximum alerts per day: 100
+      
+      // Consecutive failure threshold
+      alertConsecutiveFailThreshold: 5, // Default: 5 consecutive failures before alert
       
       // Message templates
       messageTemplates: [
@@ -231,6 +238,9 @@ const useConfigStore = create<ConfigStore>()(
   },
   updateAlertMaxCountPerDay: async (count: number) => {
     await get().updateConfigValue('alertMaxCountPerDay', count);
+  },
+  updateAlertConsecutiveFailThreshold: async (count: number) => {
+    await get().updateConfigValue('alertConsecutiveFailThreshold', count);
   },
   
   // Message template actions

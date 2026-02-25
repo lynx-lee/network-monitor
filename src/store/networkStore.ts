@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
-import type { NetworkDevice, Connection, DeviceType } from '../types';
+import type { NetworkDevice, Connection, DeviceType } from '../../types';
 import websocketService from '../services/websocketService';
 import { debug, error } from '../services/loggerService';
 

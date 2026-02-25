@@ -10,7 +10,7 @@ import 'reactflow/dist/style.css';
 import NetworkDeviceNode from './NetworkDeviceNode';
 import useNetworkStore from '../store/networkStore';
 import useConfigStore from '../store/configStore';
-import type { NetworkDevice } from '../types';
+import type { NetworkDevice } from '../../types';
 import { throttle } from '../utils/performanceUtils';
 
 const nodeTypes = {

@@ -10,7 +10,7 @@ import AlertPanel from './components/AlertPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 import useNetworkStore from './store/networkStore';
 import useConfigStore from './store/configStore';
-import type { DeviceType, NetworkDevice } from './types';
+import type { DeviceType, NetworkDevice } from '../types';
 import './i18n/config'; // 引入i18n配置
 import websocketService from './services/websocketService';
 

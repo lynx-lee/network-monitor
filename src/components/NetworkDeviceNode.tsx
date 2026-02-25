@@ -14,7 +14,7 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import type { NetworkDevice } from '../types';
+import type { NetworkDevice } from '../../types';
 import useNetworkStore from '../store/networkStore';
 import useConfigStore from '../store/configStore';
 
