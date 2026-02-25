@@ -198,11 +198,12 @@ network-monitor/
 │       ├── test-alert.ts       # 告警功能测试
 │       └── test-config-load.html  # 配置加载测试
 ├── public/                     # 静态资源（Vite）
-├── docker-compose.yml          # Docker Compose 编排
-├── Dockerfile                  # 后端 + 前端构建镜像
-├── Dockerfile.frontend         # 前端独立镜像（Nginx）
-├── nginx.conf                  # Nginx 配置
-├── mysql-init.sql              # 数据库初始化脚本
+├── deploy/                     # 部署相关文件
+│   ├── docker-compose.yml      # Docker Compose 编排
+│   ├── Dockerfile              # 后端 + 前端构建镜像
+│   ├── Dockerfile.frontend     # 前端独立镜像（Nginx）
+│   ├── nginx.conf              # Nginx 配置
+│   └── mysql-init.sql          # 数据库初始化脚本
 ├── .env.example                # 环境变量示例
 ├── package.json                # 项目依赖
 ├── tsconfig.json               # TypeScript 项目引用
@@ -252,13 +253,13 @@ cp .env.example .env
 # 编辑 .env，修改数据库密码等敏感配置
 
 # 2. 构建并启动
-docker-compose up -d --build
+docker compose -f deploy/docker-compose.yml up -d --build
 
 # 3. 查看状态
-docker-compose ps
+docker compose -f deploy/docker-compose.yml ps
 
 # 4. 查看日志
-docker-compose logs -f
+docker compose -f deploy/docker-compose.yml logs -f
 ```
 
 - 前端：`http://localhost:8090`
@@ -266,10 +267,10 @@ docker-compose logs -f
 
 ```bash
 # 停止服务
-docker-compose down
+docker compose -f deploy/docker-compose.yml down
 
 # 重启服务
-docker-compose restart
+docker compose -f deploy/docker-compose.yml restart
 ```
 
 ## 环境变量
