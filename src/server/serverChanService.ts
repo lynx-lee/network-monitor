@@ -1,5 +1,8 @@
 import axios from 'axios';
-import { getAllConfig, getAllAlerts, getDeviceAlertEnabled, saveAlert } from './configService';
+import { getAllConfig, getTodayAlertCount, getDeviceAlertEnabled, saveAlert } from './configService';
+import { loggerService } from './services/loggerService';
+
+const logger = loggerService.log.bind(loggerService);
 
 // Define message template interface
 interface MessageTemplate {
@@ -43,34 +46,34 @@ class ServerChanService {
       
       // Check if ServerChan is enabled
       if (!config.enableServerChan) {
-        console.log('ServerChan is disabled, skipping message sending');
+        logger('debug', 'ServerChan is disabled, skipping message sending');
         return false;
       }
 
       // Check if SendKey is configured
       if (!config.serverChanSendKey) {
-        console.error('ServerChan SendKey is not configured, skipping message sending');
+        logger('warn', 'ServerChan SendKey is not configured, skipping message sending');
         return false;
       }
 
       // Check device alert enabled status
       const deviceAlertEnabled = await this.checkDeviceAlertEnabled(deviceId);
       if (!deviceAlertEnabled) {
-        console.log(`Alert is disabled for device ${deviceId}, skipping message sending`);
+        logger('debug', `Alert is disabled for device ${deviceId}, skipping message sending`);
         return false;
       }
 
       // Check alert count limit per day
       const alertCountExceeded = await this.checkAlertCountLimit(config);
       if (alertCountExceeded) {
-        console.log(`Alert count limit exceeded, skipping message sending`);
+        logger('warn', 'Alert count limit exceeded, skipping message sending');
         return false;
       }
 
       // Find the template
       const template = config.messageTemplates?.find((t: MessageTemplate) => t.id === templateId);
       if (!template || !template.enabled) {
-        console.log(`Template ${templateId} not found or disabled, skipping message sending`);
+        logger('debug', `Template ${templateId} not found or disabled, skipping message sending`);
         return false;
       }
 
@@ -105,14 +108,14 @@ class ServerChanService {
       });
 
       if (isSent) {
-        console.log('Message sent successfully via ServerChan');
+        logger('info', 'Message sent successfully via ServerChan');
       } else {
-        console.error('Failed to send message via ServerChan:', response.data);
+        logger('error', 'Failed to send message via ServerChan', { response: response.data });
       }
       
       return isSent;
     } catch (error) {
-      console.error('Error sending message via ServerChan:', error);
+      logger('error', 'Error sending message via ServerChan', { error: (error as Error).message });
       return false;
     }
   }
@@ -137,32 +140,20 @@ class ServerChanService {
       
       return enabled;
     } catch (error) {
-      console.error(`Failed to check alert setting for device ${deviceId}:`, error);
+      logger('error', `Failed to check alert setting for device ${deviceId}`, { error: (error as Error).message });
       // Default to enabled if check fails
       return true;
     }
   }
   
-  // Check if alert count limit is exceeded
+  // Check if alert count limit is exceeded (uses efficient SQL COUNT query)
   private async checkAlertCountLimit(config: any): Promise<boolean> {
     try {
       const alertMaxCountPerDay = config.alertMaxCountPerDay || 100;
-      
-      // Get all alerts and filter by today's date
-      const alerts = await getAllAlerts();
-      
-      // Filter alerts from today
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayAlerts = alerts.filter((alert: any) => {
-        const alertDate = new Date(alert.created_at);
-        return alertDate >= todayStart;
-      });
-      
-      return todayAlerts.length >= alertMaxCountPerDay;
+      const todayCount = await getTodayAlertCount();
+      return todayCount >= alertMaxCountPerDay;
     } catch (error) {
-      console.error('Failed to check alert count limit:', error);
-      // Default to not exceeded if check fails
+      logger('error', 'Failed to check alert count limit', { error: (error as Error).message });
       return false;
     }
   }
@@ -173,7 +164,7 @@ class ServerChanService {
       await saveAlert(alert);
       return true;
     } catch (error) {
-      console.error('Failed to save alert to database:', error);
+      logger('error', 'Failed to save alert to database', { error: (error as Error).message });
       return false;
     }
   }

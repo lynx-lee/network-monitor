@@ -19,8 +19,6 @@ class WebSocketService {
   private maxReconnectionAttempts: number = WS_CONFIG.RECONNECTION_ATTEMPTS;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private listeners: Map<string, Function[]> = new Map();
-  private pingTimer: NodeJS.Timeout | null = null;
-  private pongTimer: NodeJS.Timeout | null = null;
 
   connect(): void {
     if (!this.socket || !this.isConnected) {
@@ -51,22 +49,16 @@ class WebSocketService {
       this.isConnected = true;
       this.connectionAttempts = 0;
       this.notifyListeners('connect');
-      // 连接成功后清除重连计时器
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
       }
-      // 启动心跳机制
-      this.startHeartbeat();
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log(`WebSocket disconnected: ${reason}`);
       this.isConnected = false;
       this.notifyListeners('disconnect', reason);
-      // 停止心跳机制
-      this.stopHeartbeat();
-      // 如果是服务器主动断开，尝试重连
       if (reason !== 'io server disconnect') {
         this.scheduleReconnect();
       }
@@ -126,17 +118,6 @@ class WebSocketService {
       console.error('WebSocket error:', error);
       this.notifyListeners('error', error);
     });
-
-    this.socket.on('pong', () => {
-      // 收到pong响应，清除超时计时器
-      if (this.pongTimer) {
-        clearTimeout(this.pongTimer);
-        this.pongTimer = null;
-      }
-      if (import.meta.env.MODE === 'development') {
-        console.log('Received pong from server');
-      }
-    });
   }
 
   private scheduleReconnect(delay: number = WS_CONFIG.RECONNECTION_DELAY): void {
@@ -158,43 +139,6 @@ class WebSocketService {
       console.log('Attempting to reconnect WebSocket...');
       this.connect();
     }, actualDelay);
-  }
-
-  private startHeartbeat(): void {
-    // 清除现有心跳计时器
-    this.stopHeartbeat();
-    
-    // 设置定期发送ping
-    this.pingTimer = setInterval(() => {
-      if (this.socket && this.isConnected) {
-        if (import.meta.env.MODE === 'development') {
-          console.log('Sending ping to server');
-        }
-        this.socket.emit('ping');
-        
-        // 设置pong超时计时器
-        if (this.pongTimer) {
-          clearTimeout(this.pongTimer);
-        }
-        this.pongTimer = setTimeout(() => {
-          console.warn('Pong timeout, connection may be lost');
-          this.isConnected = false;
-          this.notifyListeners('disconnect', 'pong_timeout');
-          this.scheduleReconnect();
-        }, WS_CONFIG.PING_TIMEOUT);
-      }
-    }, WS_CONFIG.PING_INTERVAL);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
-    if (this.pongTimer) {
-      clearTimeout(this.pongTimer);
-      this.pongTimer = null;
-    }
   }
 
   private notifyListeners(event: string, data?: any): void {

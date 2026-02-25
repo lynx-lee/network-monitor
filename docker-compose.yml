@@ -5,12 +5,12 @@ services:
     container_name: network-monitor-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
-      MYSQL_DATABASE: network_monitor
-      MYSQL_USER: network_monitor
-      MYSQL_PASSWORD: network_monitor_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme_root_pw}
+      MYSQL_DATABASE: ${DB_NAME:-network_monitor}
+      MYSQL_USER: ${DB_USER:-network_monitor}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme_db_pw}
       # 优化MySQL启动性能
-      MYSQL_INITDB_SKIP_TZINFO: "1" # 跳过时区初始化，加快启动
+      MYSQL_INITDB_SKIP_TZINFO: "1"
       MYSQL_SKIP_TZINFO: "1"
       TZ: Asia/Shanghai
     ports:
@@ -19,11 +19,11 @@ services:
       - mysql_data:/var/lib/mysql
       - ./mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
-      interval: 10s      # 缩短健康检查间隔
-      timeout: 5s        # 缩短超时时间
-      retries: 3         # 减少重试次数
-      start_period: 10s  # 启动宽限期，给服务更多启动时间
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme_root_pw}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # 后端服务
   backend:
@@ -35,19 +35,15 @@ services:
         condition: service_healthy
         restart: true
     environment:
-      # 数据库配置
       DB_HOST: db
-      DB_PORT: 3306  # 使用容器内部端口，更快的数据库访问
-      DB_USER: network_monitor
-      DB_PASSWORD: network_monitor_password
-      DB_NAME: network_monitor
-      # 应用配置
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-network_monitor}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme_db_pw}
+      DB_NAME: ${DB_NAME:-network_monitor}
       NODE_ENV: production
       PORT: 3001
-      CLIENT_ORIGIN: http://localhost:8090
-      # 日志配置
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8090}
       LOG_LEVEL: info
-      # 优化Node.js性能
       NODE_OPTIONS: "--max-old-space-size=256"
       TZ: Asia/Shanghai
     ports:

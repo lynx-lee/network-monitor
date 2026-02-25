@@ -47,10 +47,9 @@ COPY --from=backend-builder /app/src ./src
 COPY --from=backend-builder /app/package.json ./
 COPY --from=backend-builder /app/tsconfig.json ./
 COPY --from=backend-builder /app/tsconfig.node.json ./
-COPY --from=backend-builder /app/.env ./
 
-# 如果没有.env文件，创建一个默认的
-RUN if [ ! -f .env ]; then echo "DB_HOST=db\nDB_PORT=3306\nDB_USER=network_monitor\nDB_PASSWORD=network_monitor_password\nDB_NAME=network_monitor\nPORT=3001\nCLIENT_ORIGIN=http://localhost:3001\nNODE_ENV=production\nVITE_API_URL=http://localhost:3001/api\nVITE_WS_URL=ws://localhost:3001" > .env; fi
+# Environment variables should be injected at runtime via docker-compose or docker run
+# Do NOT bake .env files into the image
 
 # 暴露端口
 EXPOSE 3001

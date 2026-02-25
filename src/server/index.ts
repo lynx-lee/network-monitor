@@ -3,14 +3,12 @@ import http from 'http';
 import cors from 'cors';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import {
   serverConfig
 } from './config';
 import {
   initializeDatabase,
-  getConfig,
   setConfig,
   getAllConfig,
   saveDevice,
@@ -32,29 +30,25 @@ import type { VirtualMachine } from '../types';
 import monitoringService from './services/monitoringService';
 import businessMonitoringService from './services/businessMonitoringService';
 import alertService from './services/alertService';
+import { loggerService } from './services/loggerService';
 
 // Load environment variables from .env file
 dotenv.config();
 
-// Promisify exec for async/await usage
-const execPromise = promisify(exec);
-
-// Import logger service
-import { loggerService } from './services/loggerService';
 const logger = loggerService.log.bind(loggerService);
-
-// Start monitoring services
-monitoringService.startMonitoring(5000); // Collect system metrics every 5 seconds
-businessMonitoringService.startMonitoring(60000); // Collect business metrics every minute
-
-// Start alert checking
-alertService.startChecking(30000); // Check alerts every 30 seconds
 
 // Create Express app
 const app = express();
-// Allow all origins for CORS to support different client IPs
+
+// CORS configuration - restrict origin in production
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:8090'];
+
 app.use(cors({
-  origin: '*',
+  origin: process.env.NODE_ENV === 'production'
+    ? allowedOrigins
+    : true, // Allow all origins in development
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -66,21 +60,28 @@ const server = http.createServer(app);
 // Create Socket.io server
 const io = new Server(server, {
   cors: {
-    origin: '*', // Allow all origins for development
+    origin: process.env.NODE_ENV === 'production'
+      ? allowedOrigins
+      : true,
     methods: ['GET', 'POST'],
   },
+  pingInterval: 25000,
+  pingTimeout: 10000,
 });
 
 // Function to get IP address from MAC address using ARP cache
 const getIpByMac = async (macAddress: string): Promise<string | null> => {
   try {
-    const { exec } = require('child_process');
-    
     // Run arp -a command to get ARP cache
     const arpOutput = await new Promise<string>((resolve, reject) => {
-      exec('arp -a', (error: Error | null, stdout: string) => {
-        if (error) {
-          reject(error);
+      const proc = spawn('arp', ['-a']);
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (data) => { stdout += data.toString(); });
+      proc.stderr.on('data', (data) => { stderr += data.toString(); });
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`arp exited with code ${code}: ${stderr}`));
           return;
         }
         resolve(stdout);
@@ -93,32 +94,6 @@ const getIpByMac = async (macAddress: string): Promise<string | null> => {
     
     if (match && match[1]) {
       return match[1];
-    }
-    
-    // If not found in ARP cache, try to trigger device response by sending a broadcast ping
-    await new Promise<void>((resolve) => {
-      exec('ping -b -c 1 255.255.255.255', (error: Error | null) => {
-        if (error) {
-          console.log('Broadcast ping failed (expected on some networks):', error.message);
-        }
-        resolve();
-      });
-    });
-    
-    // Check ARP cache again after broadcast ping
-    const updatedArpOutput = await new Promise<string>((resolve, reject) => {
-      exec('arp -a', (error: Error | null, stdout: string) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(stdout);
-      });
-    });
-    
-    const updatedMatch = updatedArpOutput.match(macRegex);
-    if (updatedMatch && updatedMatch[1]) {
-      return updatedMatch[1];
     }
     
     return null;
@@ -140,17 +115,36 @@ const isValidIp = (ip: string): boolean => {
 
 const pingDevice = async (ip: string, timeout: number = 2000): Promise<{ isUp?: boolean; status: 'up' | 'down' | 'warning' | 'unknown'; pingTime?: number }> => {
   // If IP is empty or invalid, device is considered unknown
-  if (!ip || ip.trim() === '') {
+  if (!ip || ip.trim() === '' || !isValidIp(ip)) {
     logger('debug', 'Device IP is empty or invalid, marking as unknown', { ip });
     return { status: 'unknown' };
   }
 
   try {
-    // Use ping command with timeout
-    const { stdout, stderr } = await execPromise(
-      `ping -c 1 -W ${timeout / 1000} ${ip}`,
-      { timeout: timeout + 1000 } // Add 1 second buffer
-    );
+    const timeoutSec = String(Math.max(1, Math.floor(timeout / 1000)));
+    const sanitizedIp = ip.trim();
+
+    // Use spawn with arguments array to prevent command injection
+    const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      const proc = spawn('ping', ['-c', '1', '-W', timeoutSec, sanitizedIp]);
+      let stdoutData = '';
+      let stderrData = '';
+      const timer = setTimeout(() => {
+        proc.kill();
+        reject(new Error('Ping timeout'));
+      }, timeout + 1000);
+
+      proc.stdout.on('data', (data) => { stdoutData += data.toString(); });
+      proc.stderr.on('data', (data) => { stderrData += data.toString(); });
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        resolve({ stdout: stdoutData, stderr: stderrData });
+      });
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
     
     // Log full ping command output for debugging
     logger('debug', 'Raw ping output', { 
@@ -434,9 +428,6 @@ const startDeviceDataCollection = async () => {
   }
 };
 
-// Start initial device data collection
-startDeviceDataCollection();
-
 // Handle config update to restart interval if pingInterval changes
 app.post('/api/config', async (req, res) => {
   try {
@@ -515,32 +506,6 @@ app.get('/api/config', async (_req, res) => {
     res.json(config);
   } catch (error) {
     res.status(500).json({ error: 'Failed to get config' });
-  }
-});
-
-// Get specific config by key
-app.get('/api/config/:key', async (req, res) => {
-  try {
-    const { key } = req.params;
-    const value = await getConfig(key);
-    res.json({ [key]: value });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get config' });
-  }
-});
-
-// Update config
-app.post('/api/config', async (req, res) => {
-  try {
-    const config = req.body;
-    for (const [key, value] of Object.entries(config)) {
-      await setConfig(key, value);
-    }
-    logger('info', 'Config updated via API', config);
-    res.json({ success: true });
-  } catch (error) {
-    logger('error', 'Error updating config via API', { error: (error as Error).message, config: req.body });
-    res.status(500).json({ error: 'Failed to update config' });
   }
 });
 
@@ -708,34 +673,6 @@ app.post('/api/alerts/rules/:ruleId/disable', (req, res) => {
   }
 });
 
-// Add debug endpoint to get all devices with details
-app.get('/api/debug/devices', async (_req, res) => {
-  try {
-    const devices = await getAllDevices();
-    console.log('DEBUG: All devices:', devices);
-    
-    // Filter VM hosts
-    const vmHosts = (devices as any[]).filter((device: any) => device.type === 'vm_host');
-    console.log('DEBUG: VM hosts:', vmHosts);
-    
-    // Log virtual machines for each VM host
-    vmHosts.forEach((host: any) => {
-      if (host.virtualMachines) {
-        console.log(`DEBUG: VM host ${host.id} has ${host.virtualMachines.length} virtual machines:`);
-        host.virtualMachines.forEach((vm: VirtualMachine) => {
-          console.log(`DEBUG:   - ${vm.name} (${vm.ip})`);
-        });
-      } else {
-        console.log(`DEBUG: VM host ${host.id} has no virtualMachines property`);
-      }
-    });
-    
-    res.json({ devices, vmHosts });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get devices' });
-  }
-});
-
 // API endpoints for connections
 
 // Get all connections
@@ -821,9 +758,7 @@ app.post('/api/alerts', async (req, res) => {
 // Get all device alert settings
 app.get('/api/alerts/settings', async (_req, res) => {
   try {
-    // Get all device alert settings from database
     const settings = await getAllDeviceAlertSettings();
-    console.log('DEBUG: API /api/alerts/settings: Retrieved settings from database', settings);
     res.json(settings);
   } catch (error) {
     res.status(500).json({ error: 'Failed to get all device alert settings' });
@@ -865,15 +800,27 @@ app.get('/api/alerts/:deviceId', async (req, res) => {
 });
 
 // Initialize database and start server
+const startServer = () => {
+  server.listen(serverConfig.port, () => {
+    logger('info', `WebSocket server running on http://${serverConfig.host}:${serverConfig.port}`);
+  });
+};
+
+const startServices = () => {
+  // Start monitoring services after database is ready
+  monitoringService.startMonitoring(5000);
+  businessMonitoringService.startMonitoring(60000);
+  alertService.startChecking(30000);
+  startDeviceDataCollection();
+};
+
 initializeDatabase()
   .then(() => {
-    server.listen(serverConfig.port, () => {
-      console.log(`WebSocket server running on http://${serverConfig.host}:${serverConfig.port}`);
-    });
+    startServices();
+    startServer();
   })
   .catch((error) => {
-    console.warn('Warning: Failed to initialize database, but server will still start:', error);
-    server.listen(serverConfig.port, () => {
-      console.log(`WebSocket server running on http://${serverConfig.host}:${serverConfig.port}`);
-    });
+    logger('warn', 'Failed to initialize database, starting server in degraded mode', { error: (error as Error).message });
+    startServices();
+    startServer();
   });

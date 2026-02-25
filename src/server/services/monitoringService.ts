@@ -26,6 +26,8 @@ class MonitoringService {
   private lastEventLoopCheck: number = Date.now();
   private monitoringInterval: NodeJS.Timeout | null = null;
 
+  private eventLoopCheckTimer: NodeJS.Timeout | null = null;
+
   constructor() {
     this.startEventLoopMonitoring();
   }
@@ -46,6 +48,10 @@ class MonitoringService {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
+    }
+    if (this.eventLoopCheckTimer) {
+      clearTimeout(this.eventLoopCheckTimer);
+      this.eventLoopCheckTimer = null;
     }
     loggerService.log('info', 'System monitoring stopped');
   }
@@ -112,19 +118,19 @@ class MonitoringService {
       const diff = now - this.lastEventLoopCheck;
       this.lastEventLoopCheck = now;
       
-      // If the difference is large, the event loop was blocked
-      if (diff > 100) {
-        this.eventLoopLag = diff;
-        loggerService.log('warn', 'Event loop lag detected', { lag: diff });
+      // Expected interval is ~200ms; if diff is significantly larger, the event loop was blocked
+      if (diff > 300) {
+        this.eventLoopLag = diff - 200; // Subtract expected interval
+        loggerService.log('warn', 'Event loop lag detected', { lag: this.eventLoopLag });
       } else {
         this.eventLoopLag = 0;
       }
       
-      // Schedule next check
-      setImmediate(checkEventLoop);
+      // Schedule next check with reasonable interval
+      this.eventLoopCheckTimer = setTimeout(checkEventLoop, 200);
     };
     
-    setImmediate(checkEventLoop);
+    this.eventLoopCheckTimer = setTimeout(checkEventLoop, 200);
   }
 
   private addMetricsToHistory(metrics: SystemMetrics): void {

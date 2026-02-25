@@ -9,7 +9,7 @@ export const logger = loggerService.log.bind(loggerService);
 // MySQL database connection configuration - use environment variables
 const dbConfig = {
   host: process.env.DB_HOST || 'db',
-  port: 3306, // 硬编码为3306，确保使用正确的数据库端口
+  port: parseInt(process.env.DB_PORT || '3306', 10),
   user: process.env.DB_USER || 'network_monitor',
   password: process.env.DB_PASSWORD || 'network_monitor_password',
   database: process.env.DB_NAME || 'network_monitor',
@@ -484,34 +484,34 @@ export const getDeviceAlertEnabled = async (deviceId: string) => {
 // Get all device alert settings
 export const getAllDeviceAlertSettings = async () => {
   try {
-    console.log('DEBUG: getAllDeviceAlertSettings: Starting query');
-    const [rows, fields] = await pool.execute(
+    const [rows] = await pool.execute(
       'SELECT device_id, enable_alerts FROM device_alert_settings'
     );
-    console.log('DEBUG: getAllDeviceAlertSettings: Query result', { rows, fields });
-    
-    // Log the type and structure of rows
-    console.log('DEBUG: getAllDeviceAlertSettings: rows type:', typeof rows);
-    console.log('DEBUG: getAllDeviceAlertSettings: rows is array:', Array.isArray(rows));
     
     const result = rows as any[];
     const settings: Record<string, boolean> = {};
     
-    // Check if result has length
-    console.log('DEBUG: getAllDeviceAlertSettings: result length:', result.length);
-    
-    result.forEach((row, index) => {
-      console.log('DEBUG: getAllDeviceAlertSettings: Processing row', { index, row });
+    result.forEach((row) => {
       settings[row.device_id] = row.enable_alerts === 1;
     });
     
-    console.log('DEBUG: getAllDeviceAlertSettings: Final settings', settings);
-    console.log('DEBUG: getAllDeviceAlertSettings: settings type:', typeof settings);
-    console.log('DEBUG: getAllDeviceAlertSettings: settings is array:', Array.isArray(settings));
-    
     return settings;
   } catch (error) {
-    console.error('DEBUG: getAllDeviceAlertSettings: Error', { error: (error as Error).message });
+    logger('error', 'Error getting all device alert settings', { error: (error as Error).message });
     return {};
+  }
+};
+
+// Get today's alert count using SQL query (efficient, avoids loading all alerts)
+export const getTodayAlertCount = async (): Promise<number> => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT COUNT(*) as count FROM alerts WHERE created_at >= CURDATE()'
+    );
+    const result = rows as any[];
+    return result[0]?.count || 0;
+  } catch (error) {
+    logger('warn', 'Error getting today alert count', { error: (error as Error).message });
+    return 0;
   }
 };

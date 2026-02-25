@@ -1,19 +1,9 @@
-// Server-only configuration file - contains sensitive credentials
-// This file should never be imported in client-side code
+// Server-only configuration file
+// Database config is managed by configService.ts - do not duplicate here
 
 // Load environment variables from .env file
 import dotenv from 'dotenv';
 dotenv.config();
-
-// Database configuration - server-only
-// This contains sensitive credentials that should not be exposed to the browser
-export const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'network_monitor',
-  port: parseInt(process.env.DB_PORT || '3306', 10),
-};
 
 // Server configuration
 export const serverConfig = {
