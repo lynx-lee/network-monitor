@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 920" font-family="'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <linearGradient id="dockerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e3f2fd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#bbdefb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="frontendGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8f5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c8e6c9;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="backendGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff3e0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffe0b2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dbGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fce4ec;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f8bbd0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="serviceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f3e5f5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e1bee7;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1565c0"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2e7d32"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e65100"/>
+    </marker>
+  </defs>
+
+  <!-- Docker Compose 外框 -->
+  <rect x="20" y="20" width="860" height="830" rx="16" fill="url(#dockerGrad)" stroke="#1565c0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="450" y="52" text-anchor="middle" font-size="18" font-weight="bold" fill="#0d47a1">Docker Compose</text>
+
+  <!-- ==================== Frontend ==================== -->
+  <rect x="50" y="70" width="520" height="280" rx="12" fill="url(#frontendGrad)" stroke="#2e7d32" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="310" y="96" text-anchor="middle" font-size="15" font-weight="bold" fill="#1b5e20">Frontend (Nginx :80)</text>
+
+  <!-- React 19 + TypeScript 内框 -->
+  <rect x="75" y="108" width="470" height="155" rx="8" fill="#fff" fill-opacity="0.7" stroke="#66bb6a" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="310" y="130" text-anchor="middle" font-size="13" font-weight="600" fill="#2e7d32">React 19 + TypeScript</text>
+
+  <!-- Zustand -->
+  <rect x="95" y="142" width="130" height="48" rx="6" fill="#fff" stroke="#7cb342" stroke-width="1"/>
+  <text x="160" y="163" text-anchor="middle" font-size="12" font-weight="600" fill="#33691e">Zustand Store</text>
+  <text x="160" y="180" text-anchor="middle" font-size="10" fill="#558b2f">状态管理</text>
+
+  <!-- React Flow -->
+  <rect x="245" y="142" width="170" height="48" rx="6" fill="#fff" stroke="#7cb342" stroke-width="1"/>
+  <text x="330" y="163" text-anchor="middle" font-size="12" font-weight="600" fill="#33691e">React Flow</text>
+  <text x="330" y="180" text-anchor="middle" font-size="10" fill="#558b2f">网络拓扑可视化</text>
+
+  <!-- Axios -->
+  <rect x="95" y="205" width="130" height="48" rx="6" fill="#fff" stroke="#7cb342" stroke-width="1"/>
+  <text x="160" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="#33691e">Axios</text>
+  <text x="160" y="243" text-anchor="middle" font-size="10" fill="#558b2f">REST HTTP</text>
+
+  <!-- Socket.IO Client -->
+  <rect x="245" y="205" width="170" height="48" rx="6" fill="#fff" stroke="#7cb342" stroke-width="1"/>
+  <text x="330" y="226" text-anchor="middle" font-size="12" font-weight="600" fill="#33691e">Socket.IO Client</text>
+  <text x="330" y="243" text-anchor="middle" font-size="10" fill="#558b2f">实时通信</text>
+
+  <!-- Zustand → Axios 连线 -->
+  <line x1="160" y1="190" x2="160" y2="205" stroke="#7cb342" stroke-width="1"/>
+
+  <!-- Nginx Reverse Proxy -->
+  <rect x="75" y="275" width="470" height="40" rx="6" fill="#c8e6c9" stroke="#43a047" stroke-width="1"/>
+  <text x="310" y="300" text-anchor="middle" font-size="12" font-weight="600" fill="#1b5e20">Nginx Reverse Proxy    /api → Backend    /socket.io → Backend</text>
+
+  <!-- Frontend → Backend 连线 (REST) -->
+  <line x1="230" y1="315" x2="230" y2="395" stroke="#1565c0" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="215" y="360" font-size="10" fill="#1565c0" text-anchor="end">/api</text>
+
+  <!-- Frontend → Backend 连线 (WS) -->
+  <line x1="390" y1="315" x2="390" y2="395" stroke="#2e7d32" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="405" y="360" font-size="10" fill="#2e7d32">/socket.io</text>
+
+  <!-- ==================== Backend ==================== -->
+  <rect x="50" y="395" width="520" height="330" rx="12" fill="url(#backendGrad)" stroke="#e65100" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="310" y="421" text-anchor="middle" font-size="15" font-weight="bold" fill="#bf360c">Backend (Node.js 22 + Express 5 :3001)</text>
+
+  <!-- REST API Routes -->
+  <rect x="75" y="433" width="470" height="55" rx="8" fill="#fff" fill-opacity="0.8" stroke="#ff8f00" stroke-width="1"/>
+  <text x="310" y="454" text-anchor="middle" font-size="13" font-weight="600" fill="#e65100">REST API Routes</text>
+  <text x="310" y="476" text-anchor="middle" font-size="11" fill="#bf360c">/devices    /connections    /config    /alerts    /health    /errors</text>
+
+  <!-- Routes → Services 连线 -->
+  <line x1="310" y1="488" x2="310" y2="505" stroke="#e65100" stroke-width="1.5"/>
+
+  <!-- Core Services 框 -->
+  <rect x="75" y="505" width="470" height="140" rx="8" fill="url(#serviceGrad)" stroke="#8e24aa" stroke-width="1"/>
+  <text x="310" y="527" text-anchor="middle" font-size="13" font-weight="600" fill="#4a148c">Core Services</text>
+
+  <!-- Service 卡片 - 第一行 -->
+  <rect x="95" y="537" width="130" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="160" y="558" text-anchor="middle" font-size="11" fill="#6a1b9a">Alert Service</text>
+
+  <rect x="240" y="537" width="145" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="312" y="558" text-anchor="middle" font-size="11" fill="#6a1b9a">Monitoring Service</text>
+
+  <rect x="400" y="537" width="130" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="465" y="558" text-anchor="middle" font-size="11" fill="#6a1b9a">Cache Service</text>
+
+  <!-- Service 卡片 - 第二行 -->
+  <rect x="95" y="578" width="130" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="160" y="599" text-anchor="middle" font-size="11" fill="#6a1b9a">Logger Service</text>
+
+  <rect x="240" y="578" width="145" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="312" y="599" text-anchor="middle" font-size="11" fill="#6a1b9a">Config Service</text>
+
+  <rect x="400" y="578" width="130" height="32" rx="5" fill="#fff" stroke="#ab47bc" stroke-width="0.8"/>
+  <text x="465" y="593" text-anchor="middle" font-size="11" fill="#6a1b9a">ServerChan</text>
+  <text x="465" y="607" text-anchor="middle" font-size="9" fill="#8e24aa">告警推送</text>
+
+  <!-- Socket.IO Server -->
+  <rect x="75" y="660" width="470" height="45" rx="6" fill="#fff3e0" stroke="#ef6c00" stroke-width="1"/>
+  <text x="310" y="680" text-anchor="middle" font-size="12" font-weight="600" fill="#e65100">Socket.IO Server (实时推送)</text>
+  <text x="310" y="697" text-anchor="middle" font-size="10" fill="#bf360c">deviceUpdate / configUpdate</text>
+
+  <!-- Services → Socket.IO 连线 -->
+  <line x1="310" y1="645" x2="310" y2="660" stroke="#e65100" stroke-width="1.5"/>
+
+  <!-- Backend → MySQL 连线 -->
+  <line x1="310" y1="725" x2="310" y2="770" stroke="#c62828" stroke-width="2" marker-end="url(#arrowOrange)"/>
+  <text x="325" y="752" font-size="10" fill="#c62828">SQL</text>
+
+  <!-- ==================== MySQL ==================== -->
+  <rect x="50" y="770" width="520" height="65" rx="12" fill="url(#dbGrad)" stroke="#c62828" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="155" y="795" text-anchor="middle" font-size="15" font-weight="bold" fill="#b71c1c">MySQL 8.0 (:3306)</text>
+
+  <!-- 表名 -->
+  <rect x="280" y="780" width="72" height="24" rx="4" fill="#fff" stroke="#e57373" stroke-width="0.8"/>
+  <text x="316" y="797" text-anchor="middle" font-size="10" fill="#c62828">devices</text>
+
+  <rect x="360" y="780" width="85" height="24" rx="4" fill="#fff" stroke="#e57373" stroke-width="0.8"/>
+  <text x="402" y="797" text-anchor="middle" font-size="10" fill="#c62828">connections</text>
+
+  <rect x="453" y="780" width="65" height="24" rx="4" fill="#fff" stroke="#e57373" stroke-width="0.8"/>
+  <text x="485" y="797" text-anchor="middle" font-size="10" fill="#c62828">configs</text>
+
+  <rect x="280" y="810" width="72" height="22" rx="4" fill="#fff" stroke="#e57373" stroke-width="0.8"/>
+  <text x="316" y="825" text-anchor="middle" font-size="10" fill="#c62828">alerts</text>
+
+  <rect x="360" y="810" width="98" height="22" rx="4" fill="#fff" stroke="#e57373" stroke-width="0.8"/>
+  <text x="409" y="825" text-anchor="middle" font-size="10" fill="#c62828">alert_settings</text>
+
+  <!-- ==================== 右侧数据流说明 ==================== -->
+  <rect x="600" y="70" width="260" height="175" rx="10" fill="#fff" fill-opacity="0.85" stroke="#78909c" stroke-width="1" filter="url(#shadow)"/>
+  <text x="730" y="96" text-anchor="middle" font-size="14" font-weight="bold" fill="#37474f">数据流</text>
+
+  <!-- HTTP 流 -->
+  <line x1="620" y1="115" x2="650" y2="115" stroke="#1565c0" stroke-width="2.5"/>
+  <text x="660" y="120" font-size="11" fill="#37474f">HTTP (REST API)</text>
+
+  <!-- WS 流 -->
+  <line x1="620" y1="140" x2="650" y2="140" stroke="#2e7d32" stroke-width="2.5"/>
+  <text x="660" y="145" font-size="11" fill="#37474f">WebSocket (Socket.IO)</text>
+
+  <!-- SQL 流 -->
+  <line x1="620" y1="165" x2="650" y2="165" stroke="#c62828" stroke-width="2.5"/>
+  <text x="660" y="170" font-size="11" fill="#37474f">SQL (MySQL)</text>
+
+  <text x="620" y="198" font-size="10" fill="#546e7f">浏览器 → Nginx(:8090)</text>
+  <text x="635" y="213" font-size="10" fill="#546e7f">→ Express(:3001) → MySQL</text>
+  <text x="620" y="235" font-size="10" fill="#546e7f">浏览器 ← Nginx ← Socket.IO</text>
+
+  <!-- 右侧端口信息 -->
+  <rect x="600" y="265" width="260" height="105" rx="10" fill="#fff" fill-opacity="0.85" stroke="#78909c" stroke-width="1" filter="url(#shadow)"/>
+  <text x="730" y="291" text-anchor="middle" font-size="14" font-weight="bold" fill="#37474f">服务端口</text>
+
+  <circle cx="625" cy="315" r="5" fill="#2e7d32"/>
+  <text x="640" y="319" font-size="11" fill="#37474f">前端界面: <tspan font-weight="600">localhost:8090</tspan></text>
+
+  <circle cx="625" cy="338" r="5" fill="#e65100"/>
+  <text x="640" y="342" font-size="11" fill="#37474f">后端 API: <tspan font-weight="600">localhost:3001</tspan></text>
+
+  <circle cx="625" cy="361" r="5" fill="#c62828"/>
+  <text x="640" y="365" font-size="11" fill="#37474f">MySQL: <tspan font-weight="600">localhost:3306</tspan></text>
+
+  <!-- 右侧架构要点 -->
+  <rect x="600" y="390" width="260" height="170" rx="10" fill="#fff" fill-opacity="0.85" stroke="#78909c" stroke-width="1" filter="url(#shadow)"/>
+  <text x="730" y="416" text-anchor="middle" font-size="14" font-weight="bold" fill="#37474f">架构要点</text>
+
+  <text x="620" y="440" font-size="10" fill="#37474f">• 前后端分离，Nginx 静态资源</text>
+  <text x="620" y="458" font-size="10" fill="#37474f">• Socket.IO 双向实时通信</text>
+  <text x="620" y="476" font-size="10" fill="#37474f">• Alert → MySQL → Socket.IO</text>
+  <text x="630" y="491" font-size="10" fill="#37474f">→ 前端 → ServerChan 微信</text>
+  <text x="620" y="509" font-size="10" fill="#37474f">• 三容器编排 + 健康检查</text>
+  <text x="620" y="527" font-size="10" fill="#37474f">• Docker Compose 一键部署</text>
+  <text x="620" y="545" font-size="10" fill="#37474f">• 自动重启 + 数据持久化</text>
+</svg>
