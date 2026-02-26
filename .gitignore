@@ -12,13 +12,29 @@ dist
 dist-ssr
 *.local
 
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+.trae
+.codebuddy
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Testing
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
