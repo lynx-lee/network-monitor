@@ -68,7 +68,9 @@ const generatePort = (index: number): NetworkDevice['ports'][0] => {
 };
 
 /**
- * Compare two devices and return only the changed fields
+ * Compare two devices and return only the changed fields.
+ * For ports and virtualMachines, always send the full array to ensure
+ * deletions are properly synchronized with the backend.
  */
 const getDeviceChanges = (oldDevice: NetworkDevice, newDevice: NetworkDevice): Partial<NetworkDevice> => {
   const changes: Partial<NetworkDevice> = { id: newDevice.id };
@@ -86,58 +88,50 @@ const getDeviceChanges = (oldDevice: NetworkDevice, newDevice: NetworkDevice): P
     }
   }
   
-  // Compare ports if they exist
-  if (oldDevice.ports && newDevice.ports) {
-    const portChanges = newDevice.ports.map((newPort, index) => {
-      const oldPort = oldDevice.ports?.[index];
-      if (!oldPort) return newPort; // New port, send all fields
-      
-      const portDiff: any = { id: newPort.id };
-      const portProps: (keyof NetworkDevice['ports'][0])[] = [
-        'name', 'type', 'rate', 'mac', 'status', 'trafficIn', 'trafficOut'
-      ];
-      
-      for (const prop of portProps) {
-        if (oldPort[prop] !== newPort[prop]) {
-          portDiff[prop] = newPort[prop];
-        }
-      }
-      
-      // Only return if there are changes
-      return Object.keys(portDiff).length > 1 ? portDiff : undefined;
-    }).filter(Boolean);
+  // Compare ports — send full array if any change detected (add/remove/modify)
+  if (newDevice.ports) {
+    const oldPorts = oldDevice.ports || [];
+    const newPorts = newDevice.ports;
     
-    if (portChanges.length > 0) {
-      changes.ports = portChanges as NetworkDevice['ports'];
+    const portsChanged = 
+      oldPorts.length !== newPorts.length ||
+      newPorts.some((newPort) => {
+        const oldPort = oldPorts.find(p => p.id === newPort.id);
+        if (!oldPort) return true; // New port added
+        return (
+          oldPort.name !== newPort.name ||
+          oldPort.type !== newPort.type ||
+          oldPort.rate !== newPort.rate ||
+          oldPort.mac !== newPort.mac ||
+          oldPort.status !== newPort.status
+        );
+      }) ||
+      oldPorts.some(oldPort => !newPorts.find(p => p.id === oldPort.id)); // Port removed
+    
+    if (portsChanged) {
+      // Send full ports array to ensure backend replaces rather than merges
+      changes.ports = newPorts;
       hasChanges = true;
     }
   }
   
-  // Compare virtual machines if they exist
-  if (oldDevice.virtualMachines && newDevice.virtualMachines) {
-    const vmChanges = newDevice.virtualMachines.map((newVm, index) => {
-      const oldVm = oldDevice.virtualMachines?.[index];
-      if (!oldVm) return newVm; // New VM, send all fields
-      
-      const vmDiff: any = { name: newVm.name };
-      const vmProps: (keyof typeof newVm)[] = [
-        'ip', 'status', 'pingTime'
-      ];
-      
-      for (const prop of vmProps) {
-        if (oldVm[prop] !== newVm[prop]) {
-          vmDiff[prop] = newVm[prop];
-        }
-      }
-      
-      // Only return if there are changes
-      return Object.keys(vmDiff).length > 1 ? vmDiff : undefined;
-    }).filter(Boolean);
-    
-    if (vmChanges.length > 0) {
-      changes.virtualMachines = vmChanges as NetworkDevice['virtualMachines'];
-      hasChanges = true;
-    }
+  // Compare virtual machines — send full array if any change detected
+  const oldVMs = oldDevice.virtualMachines || [];
+  const newVMs = newDevice.virtualMachines || [];
+  
+  const vmsChanged =
+    oldVMs.length !== newVMs.length ||
+    newVMs.some((newVm) => {
+      const oldVm = oldVMs.find(v => v.name === newVm.name);
+      if (!oldVm) return true; // New VM added
+      return oldVm.ip !== newVm.ip || oldVm.status !== newVm.status || oldVm.pingTime !== newVm.pingTime;
+    }) ||
+    oldVMs.some(oldVm => !newVMs.find(v => v.name === oldVm.name)); // VM removed
+  
+  if (vmsChanged) {
+    // Send full virtualMachines array to ensure backend replaces rather than merges
+    changes.virtualMachines = newDevice.virtualMachines;
+    hasChanges = true;
   }
   
   // Only return changes if there are any

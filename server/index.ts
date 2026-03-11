@@ -526,17 +526,17 @@ io.on('connection', async (socket: Socket) => {
   });
   
   // Handle device update from client
+  // Note: Device data is already saved via REST API (POST /api/devices),
+  // WebSocket is used only for broadcasting updates to other clients.
   socket.on('deviceUpdate', async (device: Record<string, unknown>) => {
     try {
-      logger('info', 'Received device update via Socket.io', device);
-      // Save device to database
-      await saveDevice(device);
+      logger('info', 'Received device update via Socket.io, broadcasting to clients', { deviceId: device.id });
       
-      // Broadcast the updated device to all clients
+      // Broadcast the updated device to all clients (no need to save again)
       io.emit('deviceUpdate', [device]);
       logger('info', 'Device update broadcasted to all clients', { deviceId: device.id });
     } catch (error) {
-      logger('error', 'Error updating device via Socket.io', { error: (error as Error).message, device });
+      logger('error', 'Error broadcasting device update via Socket.io', { error: (error as Error).message, device });
     }
   });
 });

@@ -30,18 +30,24 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
   const borderColor = isDark ? '#1f3a5f' : '#d9d9d9';
   const textColor = isDark ? '#ffffff' : '#000000';
 
+  // Track the device ID to only reset form when switching to a different device
+  const deviceIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (device) {
+    if (device && device.id !== deviceIdRef.current) {
+      deviceIdRef.current = device.id;
       setPortCount((device.ports || []).length);
-      // 当device变化时，总是更新ports状态为新设备的端口信息
+      // 切换到新设备时，更新ports和virtualMachines状态
       setPorts(device.ports || []);
-      // Initialize virtual machines if it's a VM host
       setVirtualMachines(device.virtualMachines || []);
       form.setFieldsValue({
         label: device.label,
         ip: device.ip,
         mac: device.mac,
       });
+    }
+    if (!device) {
+      deviceIdRef.current = null;
     }
   }, [device, form]);
 

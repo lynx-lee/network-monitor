@@ -194,43 +194,15 @@ export const saveDevice = async (device: any) => {
       // Deep merge the incremental update into existing data
       mergedDevice = { ...(existingData as object), ...(device as object) };
       
-      // Special handling for ports if it's an incremental update
-      if (device.ports && Array.isArray(device.ports) && existingData.ports) {
-        // Merge ports by id
-        const portMap = new Map(existingData.ports.map((p: any) => [p.id, p]));
-        
-        device.ports.forEach((portUpdate: any) => {
-          if (portMap.has(portUpdate.id)) {
-            // Update existing port with incremental changes
-            const existingPort = portMap.get(portUpdate.id);
-            portMap.set(portUpdate.id, { ...(existingPort as object), ...(portUpdate as object) });
-          } else {
-            // Add new port
-            portMap.set(portUpdate.id, portUpdate);
-          }
-        });
-        
-        mergedDevice.ports = Array.from(portMap.values());
+      // For ports and virtualMachines: the frontend always sends the full array
+      // when changes are detected, so we directly replace rather than merge.
+      // This ensures deletions (removing ports/VMs) are properly persisted.
+      if (device.ports !== undefined && Array.isArray(device.ports)) {
+        mergedDevice.ports = device.ports;
       }
       
-      // Special handling for virtualMachines if it's an incremental update
-      if (device.virtualMachines && Array.isArray(device.virtualMachines) && existingData.virtualMachines) {
-        // Merge virtual machines by name (since VM interface doesn't have id property)
-        const vmMap = new Map(existingData.virtualMachines.map((vm: any) => [vm.name, vm]));
-        
-        device.virtualMachines.forEach((vmUpdate: any) => {
-          const key = vmUpdate.name;
-          if (vmMap.has(key)) {
-            // Update existing VM with incremental changes
-            const existingVm = vmMap.get(key);
-            vmMap.set(key, { ...(existingVm as object), ...(vmUpdate as object) });
-          } else {
-            // Add new VM
-            vmMap.set(key, vmUpdate);
-          }
-        });
-        
-        mergedDevice.virtualMachines = Array.from(vmMap.values());
+      if (device.virtualMachines !== undefined && Array.isArray(device.virtualMachines)) {
+        mergedDevice.virtualMachines = device.virtualMachines;
       }
     }
     
