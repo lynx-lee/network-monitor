@@ -35,6 +35,7 @@ export class LoggerService {
   private options: LoggerOptions;
   private logFileStream: fs.WriteStream | null = null;
   private logFileName: string = '';
+  private rotationIndex: number = 0; // Counter to disambiguate same-day rotated files
 
   constructor(options: Partial<LoggerOptions> = {}) {
     // Merge provided options with default options
@@ -73,13 +74,16 @@ export class LoggerService {
     try {
       // Create log file name with timestamp
       const timestamp = new Date().toISOString().slice(0, 10);
-      this.logFileName = path.join(this.options.logDirectory, `network-monitor-${timestamp}.log`);
+      const suffix = this.rotationIndex > 0 ? `.${this.rotationIndex}` : '';
+      this.logFileName = path.join(this.options.logDirectory, `network-monitor-${timestamp}${suffix}.log`);
       
       // Create write stream in append mode
       this.logFileStream = fs.createWriteStream(this.logFileName, { flags: 'a' });
       
-      // Rotate logs if needed
-      this.rotateLogs();
+      this.logFileStream.on('error', (err) => {
+        console.error('Log file stream error:', err);
+        this.options.output = 'console';
+      });
     } catch (error) {
       console.error('Error initializing log file:', error);
       // Fallback to console only if file initialization fails
@@ -88,46 +92,61 @@ export class LoggerService {
   }
 
   /**
-   * Rotate logs if they exceed the maximum file size or number of files
+   * Check if the current log file needs rotation (size exceeded).
+   * If so, close the current stream and open a new one with an incremented index.
    */
-  private rotateLogs(): void {
-    if (this.options.output === 'console') {
+  private checkRotation(): void {
+    if (this.options.output === 'console' || !this.logFileName) {
       return;
     }
 
     try {
-      // Get all log files
-      const logFiles = fs.readdirSync(this.options.logDirectory)
-        .filter(file => file.startsWith('network-monitor-') && file.endsWith('.log'))
-        .map(file => path.join(this.options.logDirectory, file))
-        .sort((a, b) => {
-          return fs.statSync(a).mtime.getTime() - fs.statSync(b).mtime.getTime();
-        });
+      if (!fs.existsSync(this.logFileName)) return;
 
-      // Delete oldest files if we exceed maxFiles
-      while (logFiles.length > this.options.maxFiles) {
-        const oldestFile = logFiles.shift();
-        if (oldestFile) {
-          fs.unlinkSync(oldestFile);
+      const stats = fs.statSync(this.logFileName);
+      if (stats.size > this.options.maxFileSize) {
+        // Close current stream
+        if (this.logFileStream) {
+          this.logFileStream.end();
+          this.logFileStream = null;
         }
+
+        // Increment rotation index so a new file name is generated
+        this.rotationIndex++;
+        this.initializeLogFile();
       }
 
-      // Check current log file size
-      if (this.logFileName && fs.existsSync(this.logFileName)) {
-        const stats = fs.statSync(this.logFileName);
-        if (stats.size > this.options.maxFileSize) {
-          // Close current stream
-          if (this.logFileStream) {
-            this.logFileStream.close();
-            this.logFileStream = null;
-          }
-          
-          // Initialize new log file
-          this.initializeLogFile();
+      // Clean up oldest files if we exceed maxFiles
+      this.cleanOldFiles();
+    } catch (error) {
+      console.error('Error during log rotation check:', error);
+    }
+  }
+
+  /**
+   * Remove oldest log files if total count exceeds maxFiles
+   */
+  private cleanOldFiles(): void {
+    try {
+      const logFiles = fs.readdirSync(this.options.logDirectory)
+        .filter(file => file.startsWith('network-monitor-') && file.endsWith('.log'))
+        .map(file => ({
+          name: file,
+          path: path.join(this.options.logDirectory, file),
+          mtime: fs.statSync(path.join(this.options.logDirectory, file)).mtime.getTime()
+        }))
+        .sort((a, b) => a.mtime - b.mtime);
+
+      while (logFiles.length > this.options.maxFiles) {
+        const oldest = logFiles.shift();
+        if (oldest && oldest.path !== this.logFileName) {
+          fs.unlinkSync(oldest.path);
+        } else {
+          break; // Don't delete the current log file
         }
       }
     } catch (error) {
-      console.error('Error rotating logs:', error);
+      console.error('Error cleaning old log files:', error);
     }
   }
 
@@ -180,6 +199,8 @@ export class LoggerService {
       if ((this.options.output === 'file' || this.options.output === 'both') && this.logFileStream) {
         try {
           this.logFileStream.write(formattedMessage + '\n');
+          // Periodically check rotation (every write, statSync is cheap)
+          this.checkRotation();
         } catch (error) {
           console.error('Error writing to log file:', error);
           // Fallback to console only if file writing fails
@@ -218,11 +239,12 @@ export class LoggerService {
   }
 
   /**
-   * Close log file stream
+   * Close log file stream gracefully (flush pending writes first)
    */
   public close(): void {
     if (this.logFileStream) {
-      this.logFileStream.close();
+      // end() flushes pending writes before closing, unlike close()
+      this.logFileStream.end();
       this.logFileStream = null;
     }
   }

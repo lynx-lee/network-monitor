@@ -71,8 +71,6 @@ services:
         reservations:
           cpus: '0.25'
           memory: '256M'
-    # 优化容器启动顺序
-    entrypoint: ["/bin/bash", "-c", "sleep 2 && npm run server"]
 
   # 前端客户端服务
   frontend:

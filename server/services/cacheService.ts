@@ -7,6 +7,7 @@ interface CacheEntry<T> {
 class CacheService {
   private cache: Map<string, CacheEntry<any>> = new Map();
   private defaultTTL: number = 5000; // 5 seconds default TTL
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(defaultTTL?: number) {
     if (defaultTTL) {
@@ -14,7 +15,9 @@ class CacheService {
     }
     
     // Clean up expired entries every minute
-    setInterval(() => this.cleanup(), 60000);
+    // Use unref() so this timer doesn't prevent process from exiting
+    this.cleanupTimer = setInterval(() => this.cleanup(), 60000);
+    this.cleanupTimer.unref();
   }
 
   set<T>(key: string, data: T, ttl?: number): void {
@@ -51,6 +54,18 @@ class CacheService {
   }
 
   clear(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * Stop the cleanup timer and clear all entries.
+   * Call this during graceful shutdown.
+   */
+  destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
     this.cache.clear();
   }
 

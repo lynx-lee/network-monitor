@@ -25,7 +25,9 @@ import {
   getAlertsByDate,
   getAllDeviceAlertSettings,
   setDeviceAlertEnabled,
-  getDeviceAlertEnabled
+  getDeviceAlertEnabled,
+  checkPoolHealth,
+  closePool
 } from './configService';
 import serverChanService from './serverChanService';
 import type { VirtualMachine } from '../types';
@@ -697,11 +699,12 @@ app.get('/api/health/detailed', async (_req: Request, res: Response) => {
 
     // Check database connection
     try {
-      const connection = await (global as any).pool?.getConnection();
-      if (connection) {
-        healthCheck.database.status = 'connected';
-        healthCheck.database.activeConnections = (global as any).pool?._allConnections?.length || 0;
-        connection.release();
+      const dbHealth = await checkPoolHealth();
+      healthCheck.database.status = dbHealth.status;
+      healthCheck.database.activeConnections = dbHealth.activeConnections;
+      healthCheck.database.connectionLimit = dbHealth.connectionLimit;
+      if (dbHealth.status === 'disconnected') {
+        healthCheck.status = 'degraded';
       }
     } catch (dbError) {
       healthCheck.database.status = 'disconnected';
@@ -925,6 +928,82 @@ const startServices = () => {
   alertService.startChecking(30000);
   startDeviceDataCollection();
 };
+
+// Graceful shutdown handler
+let isShuttingDown = false;
+
+const gracefulShutdown = async (signal: string) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  logger('info', `Received ${signal}, starting graceful shutdown...`);
+
+  // 1. Stop accepting new connections
+  server.close(() => {
+    logger('info', 'HTTP server closed');
+  });
+
+  // 2. Stop ping interval
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+    pingIntervalId = null;
+    logger('info', 'Ping interval cleared');
+  }
+
+  // 3. Stop monitoring services
+  try {
+    monitoringService.stopMonitoring();
+    businessMonitoringService.stopMonitoring();
+    alertService.stopChecking();
+    logger('info', 'Monitoring services stopped');
+  } catch (err) {
+    logger('error', 'Error stopping monitoring services', { error: (err as Error).message });
+  }
+
+  // 4. Close all WebSocket connections
+  try {
+    io.disconnectSockets(true);
+    logger('info', 'WebSocket connections closed');
+  } catch (err) {
+    logger('error', 'Error closing WebSocket connections', { error: (err as Error).message });
+  }
+
+  // 5. Close database pool
+  try {
+    await closePool();
+    logger('info', 'Database pool closed');
+  } catch (err) {
+    logger('error', 'Error closing database pool', { error: (err as Error).message });
+  }
+
+  // 6. Close logger
+  try {
+    loggerService.close();
+  } catch (_) { /* ignore */ }
+
+  // Force exit after timeout
+  setTimeout(() => {
+    console.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 10000).unref();
+
+  process.exit(0);
+};
+
+// Signal handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Global exception handlers
+process.on('uncaughtException', (error: Error) => {
+  logger('error', 'Uncaught exception', { error: error.message, stack: error.stack });
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logger('error', 'Unhandled rejection', { reason: String(reason) });
+  // Log but don't exit for unhandled rejections - they may be non-critical
+});
 
 initializeDatabase()
   .then(() => {

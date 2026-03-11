@@ -14,7 +14,7 @@ export const serverConfig = {
 
 // Log configuration
 export const logConfig = {
-  level: (process.env.LOG_LEVEL || 'debug') as 'info' | 'warn' | 'error' | 'debug',
+  level: (process.env.LOG_LEVEL || 'info') as 'info' | 'warn' | 'error' | 'debug',
 };
 
 // API configuration

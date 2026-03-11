@@ -15,7 +15,8 @@ const dbConfig = {
   database: process.env.DB_NAME || 'network_monitor',
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20', 10),
-  queueLimit: 0,
+  queueLimit: 100, // Prevent infinite queuing when DB is unreachable
+  connectTimeout: 10000, // 10s timeout for creating new connections
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
 };
@@ -24,6 +25,44 @@ const dbConfig = {
 
 // Create MySQL connection pool
 const pool = mysql.createPool(dbConfig);
+
+// Monitor pool errors (e.g. unexpected disconnections)
+pool.pool.on('error', (err) => {
+  logger('error', 'Database pool error', { error: err.message, code: (err as any).code });
+});
+
+// Check database pool health — exported for /api/health/detailed
+export const checkPoolHealth = async (): Promise<{
+  status: 'connected' | 'disconnected';
+  activeConnections: number;
+  connectionLimit: number;
+}> => {
+  try {
+    const connection = await pool.getConnection();
+    const info = {
+      status: 'connected' as const,
+      activeConnections: (pool.pool as any)._allConnections?.length || 0,
+      connectionLimit: dbConfig.connectionLimit,
+    };
+    connection.release();
+    return info;
+  } catch {
+    return {
+      status: 'disconnected',
+      activeConnections: 0,
+      connectionLimit: dbConfig.connectionLimit,
+    };
+  }
+};
+
+// Close the pool gracefully — called during shutdown
+export const closePool = async (): Promise<void> => {
+  try {
+    await pool.end();
+  } catch (err) {
+    logger('error', 'Error closing database pool', { error: (err as Error).message });
+  }
+};
 
 // Initialize database (create tables if not exists)
 export const initializeDatabase = async () => {

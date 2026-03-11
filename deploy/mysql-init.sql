@@ -127,5 +127,4 @@ CREATE TABLE IF NOT EXISTS device_alert_settings (
   INDEX idx_enable_alerts (enable_alerts)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert default device alert settings for test device
-INSERT INTO device_alert_settings (device_id, enable_alerts) VALUES ('test-device', 0);
+-- Production init complete. Application will create records at runtime.

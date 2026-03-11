@@ -4,9 +4,59 @@
 
 网络监控系统是一个基于现代 Web 技术构建的实时网络设备监控平台，旨在为网络管理员提供直观、高效的网络管理解决方案。系统通过可视化方式展示网络设备的连接关系、实时状态和延迟数据，支持跨设备访问，可通过浏览器实时查看网络拓扑和设备状态。
 
-采用前后端分离架构：前端基于 React 19 + TypeScript，后端基于 Node.js 22 + Express 5，通过 Socket.IO 实现实时数据推送，MySQL 8 存储设备信息和配置数据，Docker Compose 容器化部署。
+采用前后端分离架构：前端基于 React 19 + TypeScript，后端基于 Node.js 20 + Express 5，通过 Socket.IO 实现实时数据推送，MySQL 8 存储设备信息和配置数据，Docker Compose 容器化部署。
 
 ## 版本更新
+
+### V3.3.1
+
+- **Dockerfile 基础镜像降级**：三个构建阶段从 `node:22-alpine` 改为 `node:20-alpine`，复用服务器已缓存的镜像，避免构建时重新拉取，显著加快构建速度
+
+### V3.3.0
+
+V3.3.0 为部署与运维全面加固版本，涵盖后端进程健壮性、Docker 镜像瘦身、Nginx 安全加固、数据库连接池优化、日志系统修复等 10 组改进。
+
+#### 进程健壮性
+
+- **优雅关闭**：新增 `SIGTERM` / `SIGINT` 信号处理，停止 ping 定时器、监控服务、WebSocket 连接后关闭数据库连接池和日志，10 秒超时强制退出
+- **全局异常捕获**：新增 `uncaughtException` 触发优雅关闭、`unhandledRejection` 记录错误日志，防止进程静默崩溃
+- **CacheService 定时器**：清理定时器使用 `unref()`，不阻止进程退出；新增 `destroy()` 方法供关闭时调用
+
+#### 数据库优化
+
+- **连接池加固**：`queueLimit` 从 `0`（无限排队）改为 `100`，新增 `connectTimeout: 10000`（10 秒连接超时），新增 `pool.on('error')` 监听异常断连
+- **健康检查修复**：`/api/health/detailed` 中数据库状态检测从失效的 `global.pool`（永远 unknown）改为导出的 `checkPoolHealth()` 函数，正确返回连接状态
+- **连接池关闭**：新增 `closePool()` 函数，优雅关闭时调用 `pool.end()` 释放所有连接
+
+#### Docker 镜像瘦身
+
+- **三阶段构建**：新增独立的 `deps-builder` 阶段，生产镜像只安装 `--omit=dev` 依赖 + `tsx`，排除 vite/eslint/typescript 等开发依赖
+- **移除 bash**：生产镜像不再安装 `bash`（移除 `sleep 2` entrypoint 后不再需要），仅保留 `curl` 用于健康检查
+
+#### Nginx 安全加固
+
+- **安全响应头**：新增 `X-Frame-Options`、`X-Content-Type-Options`、`X-XSS-Protection`、`Referrer-Policy`
+- **Gzip 压缩**：启用 gzip 压缩，覆盖 text/css、application/javascript、application/json 等类型
+- **请求限制**：`client_max_body_size 2m` 限制请求体大小
+- **代理超时**：API 代理新增 `proxy_connect_timeout`、`proxy_read_timeout`、`proxy_send_timeout`；WebSocket 代理新增 `proxy_send_timeout`
+
+#### 日志系统修复
+
+- **同天轮转**：日志文件名新增 `.N` 后缀（如 `network-monitor-2026-03-11.1.log`），解决同天文件超限后创建同名文件无法实际轮转的问题
+- **递归消除**：`checkRotation()` 与 `initializeLogFile()` 解耦，消除 `rotateLogs()` ↔ `initializeLogFile()` 递归调用隐患
+- **安全关闭**：`close()` 改用 `stream.end()` 替代 `stream.close()`，确保未刷写数据写入磁盘
+
+#### 配置与部署修复
+
+- **Docker Compose**：移除不可靠的 `sleep 2 && npm run server` entrypoint，依赖 `depends_on: condition: service_healthy` 保证 DB 就绪
+- **日志级别一致**：`server/config/index.ts` 中 `logConfig.level` 默认值从 `'debug'` 改为 `'info'`，与 `loggerService.ts` 保持一致
+- **`.env.example` 补全**：新增 `DB_HOST`、`DB_PORT`、`DB_CONNECTION_LIMIT`、`SERVER_PORT`、`SERVER_HOST`、`NODE_ENV`、`LOG_LEVEL`、`LOG_DIR` 等完整后端变量
+- **mysql-init.sql 清理**：移除硬编码的 `test-device` 告警设置插入，生产初始化脚本不应包含测试数据
+- **Vite 构建修复**：移除 `manualChunks` 中已删除的 `recharts` 配置，避免构建报错或生成空 chunk
+
+#### 构建上下文优化
+
+- **`.dockerignore` 补全**：新增 `.git/`、`deploy/`、`docs/`、`tests/`、`backups/`、`.codebuddy/`、`.env`、`README.md` 等排除规则，减少 Docker 构建上下文体积和构建时间
 
 ### V3.2.0
 
@@ -424,7 +474,7 @@ docker compose -f deploy/docker-compose.yml restart
 | `DB_NAME` | `network_monitor` | 数据库名 |
 | `PORT` | `3001` | 后端端口 |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | CORS 允许来源 |
-| `LOG_LEVEL` | `debug` | 日志级别（debug/info/warn/error） |
+| `LOG_LEVEL` | `info` | 日志级别（debug/info/warn/error） |
 | `VITE_API_URL` | `/api` | 前端 API 路径 |
 | `VITE_WS_URL` | `/` | 前端 WebSocket 路径 |
 
@@ -530,4 +580,4 @@ MIT
 
 ---
 
-*Last updated: 2026-03-11 (V3.2.0)*
+*Last updated: 2026-03-11 (V3.3.1)*
