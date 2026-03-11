@@ -56,21 +56,21 @@ function App() {
     };
   }, [fetchConfig, fetchAllData]);
   
-  const handleOpenConfigPanel = () => {
+  const handleOpenConfigPanel = useCallback(() => {
     setSystemConfigVisible(true);
-  };
+  }, []);
   
-  const handleCloseConfigPanel = () => {
+  const handleCloseConfigPanel = useCallback(() => {
     setSystemConfigVisible(false);
-  };
+  }, []);
   
-  const handleOpenAlertPanel = () => {
+  const handleOpenAlertPanel = useCallback(() => {
     setAlertPanelVisible(true);
-  };
+  }, []);
   
-  const handleCloseAlertPanel = () => {
+  const handleCloseAlertPanel = useCallback(() => {
     setAlertPanelVisible(false);
-  };
+  }, []);
 
   // #8: 新设备添加位置随机偏移，避免重叠
   const deviceCountRef = React.useRef(0);
@@ -89,20 +89,20 @@ function App() {
     }
   }, [selectedDevice]);
 
-  const handleConfigClose = () => {
+  const handleConfigClose = useCallback(() => {
     setConfigVisible(false);
-  };
+  }, []);
 
-  const handleConfigSave = async (device: NetworkDevice) => {
+  const handleConfigSave = useCallback(async (device: NetworkDevice) => {
     return await updateDevice(device);
-  };
+  }, [updateDevice]);
 
-  const handleDeleteDevice = () => {
+  const handleDeleteDevice = useCallback(() => {
     if (selectedDevice) {
       deleteDevice(selectedDevice.id);
       setConfigVisible(false);
     }
-  };
+  }, [selectedDevice, deleteDevice]);
 
   return (
     <ErrorBoundary>

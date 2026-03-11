@@ -8,6 +8,76 @@
 
 ## 版本更新
 
+### V3.2.0
+
+V3.2.0 为全面代码审查优化版本，涵盖性能优化、安全加固、健壮性增强、UI 改进和代码清理共 9 组优化。
+
+#### 安全加固
+
+- **后端配置写入白名单**：`POST /api/config` 和 WebSocket `configUpdate` 新增配置键白名单校验，防止任意 key-value 写入数据库
+- **设备保存校验**：`POST /api/devices` 新增基本字段校验（`id` 必填、`type` 白名单），防止任意 JSON 入库
+- **正则注入防护**：`getIpByMac` 函数新增 MAC 地址格式预校验，转义正则特殊字符，修复 IP 匹配中未转义的 `.`
+
+#### 性能优化
+
+- **批量设备保存**：定时 ping 后的 N 台设备保存由逐个 `saveDevice`（2N 次 SQL）改为 `batchSaveDevices` 单事务批量写入
+- **告警查询优化**：`getAllAlerts` 新增 LIMIT 参数（默认 500），`alerts` 表新增 `created_at` 和 `device_id` 索引
+- **新客户端不触发 ping**：新 WebSocket 客户端连接时改为从数据库读取缓存数据，不再触发完整 `collectDeviceData`（含 ping）
+- **消除重复查询**：定时任务中移除重复的 `getAllDevices()` 调用
+- **React 渲染优化**：`App.tsx` 中 6 个事件处理函数包裹 `useCallback`；`Sidebar` 组件添加 `React.memo`，`deviceTypes` 数组使用 `useMemo` 缓存
+- **ServerChan 输入防抖**：4 个 ServerChan 配置输入框添加本地状态 + 600ms debounce，避免每字符触发 API 请求
+
+#### 健壮性增强
+
+- **API 请求超时**：所有 axios 请求添加 15 秒超时设置
+- **4xx 不重试**：`apiRequest` 对 400/404 等客户端错误不再重试，仅重试 5xx 和网络错误
+- **WebSocket 绝对重连上限**：新增 `MAX_TOTAL_RECONNECTION_ATTEMPTS`（50 次）绝对上限，防止无限重连
+- **模板操作失败回滚**：消息模板 `add/update/delete` 操作失败时自动回滚本地状态
+- **设备删除清理内存**：删除设备时同步清理 `deviceFailCounters` / `deviceAlertTriggered` Map
+
+#### UI 优化
+
+- **CSS 过渡精准化**：`body`、`.ant-layout`、`.ant-layout-sider` 的 `transition: all` 改为仅过渡 `background-color` / `color`，避免布局闪动
+- **卡片悬停不干扰拖拽**：`.ant-card:hover` 的 `transform: translateY(-2px)` 限定为 ReactFlow 节点外的卡片
+- **暗色主题完善**：新增 ReactFlow 控件、小地图、卡片、模态框在暗色主题下的颜色覆盖
+- **Ant Design 属性更新**：`Space orientation` 废弃属性全部改为 `direction`
+- **端口配置防溢出**：端口配置区 `flexWrap: 'nowrap'` 改为 `'wrap'`，防止窄屏溢出
+- **响应式 Modal**：移动端 Modal 最大宽度限制为 `calc(100vw - 32px)`
+
+#### 代码清理
+
+- **移除未使用依赖**：移除 `recharts` 和 `http`（npm 包）依赖
+- **console.log 清理**：`websocketService.ts` 和 `DeviceConfigPanel.tsx` 中的生产环境 `console.log` 全部替换为结构化日志方法
+- **ConfigPanel 编译修复**：补充缺失的 `useEffect` 导入
+
+### V3.1.0
+
+V3.1.0 为全面代码审查与 Bug 修复版本，共修复 12 个 Bug，涵盖 WebSocket 通信、状态管理、数据一致性、内存泄漏等多个方面。
+
+#### 严重 Bug 修复
+
+- **WebSocket 回退逻辑无限递归**：修复了 `sendDeviceUpdate` 在 WebSocket 不可用时回退调用 `updateDevice` 导致无限递归直至栈溢出的问题。改为仅记录警告（数据已通过 REST API 保存）
+- **WebSocket 重连泄漏**：修复了断线重连时未清理旧 socket 实例，导致多个连接并存、事件监听器泄漏的问题。重连前先调用 `off()` + `disconnect()` 清理旧连接
+- **拖拽最终位置丢失**：修复了 `onNodesChange` 使用丢弃式节流，拖拽停止时最后一次位置更新可能被丢弃的问题。改为 trailing 模式节流，确保最终位置始终被持久化
+- **WebSocket 广播不完整数据**：修复了增量设备更新通过 WebSocket 广播给其他客户端，导致其他客户端丢失未变更字段的问题。改为从数据库读取完整设备数据后再广播
+- **WebSocket 广播包含发送者**：修复了 `io.emit` 将更新广播给包括发送者在内的所有客户端，导致发送者收到自己的更新触发不必要的状态重算。改为 `socket.broadcast.emit`
+
+#### 数据一致性修复
+
+- **配置更新失败不回滚**：修复了 `configStore.updateConfigValue` 先更新本地状态再调用 API，失败时不回滚导致前后端数据不一致的问题。添加了失败回滚机制
+- **fetchConfig 可能覆盖 store 函数**：修复了 `configStore.fetchConfig` 将服务端返回的任意数据直接 `...spread` 到 store，可能覆盖 action 函数的问题。改为白名单字段过滤
+- **告警阈值修改不生效**：修复了服务端定时任务使用启动时闭包中的旧 config，用户修改 `warningPingThreshold` / `criticalPingThreshold` 后不会立即生效的问题。改为每次回调时重新获取最新 config
+- **fetchAllData 异常清空数据**：移除了 `fetchAllData` catch 分支中清空所有设备和连接数据的逻辑（`Promise.allSettled` 本身不会抛异常，但防御性保留 catch 不应清空已有数据）
+
+#### 内存泄漏修复
+
+- **ConfigPanel debounce 未清理**：修复了 `ConfigPanel` 组件卸载时 debounce 定时器未清理，可能更新已卸载组件状态的问题。添加 `useEffect` 清理函数
+
+#### UI 修复
+
+- **表格列标题重复**：修复了 `ConfigPanel` 消息模板表格中两列标题都显示为"状态"的问题，操作列改为"操作"
+- **设备配置面板重开不刷新**：修复了关闭设备配置面板后重新打开同一设备时，表单数据不会从 store 刷新的问题。面板关闭时重置 `deviceIdRef`
+
 ### V3.0.3
 
 V3.0.3 为设备属性编辑功能的 Bug 修复版本，共修复 5 个 Bug。
@@ -181,7 +251,6 @@ V2.0.0 为项目初始版本，完成全部核心功能开发，共 68 个文件
 | Zustand | 5.0 | 状态管理 |
 | Socket.IO Client | 4.8 | 实时通信 |
 | i18next | 25.7 | 国际化 |
-| Recharts | 3.6 | 图表 |
 | Axios | 1.13 | HTTP 请求 |
 
 ### 后端
@@ -461,4 +530,4 @@ MIT
 
 ---
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-11 (V3.2.0)*

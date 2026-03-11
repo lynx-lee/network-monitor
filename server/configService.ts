@@ -97,6 +97,14 @@ export const initializeDatabase = async () => {
       )
     `);
     
+    // Add indexes for alerts table performance
+    try {
+      await connection.execute(`CREATE INDEX idx_alerts_created_at ON alerts (created_at)`);
+    } catch (_) { /* Index may already exist, ignore */ }
+    try {
+      await connection.execute(`CREATE INDEX idx_alerts_device_id ON alerts (device_id)`);
+    } catch (_) { /* Index may already exist, ignore */ }
+    
     connection.release();
     logger('info', 'Database initialized successfully');
   } catch (error) {
@@ -237,6 +245,65 @@ export const saveDevice = async (device: any) => {
   }
 };
 
+// Batch save multiple devices in a single transaction (much faster than N individual saveDevice calls)
+export const batchSaveDevices = async (devices: any[]) => {
+  if (!devices || devices.length === 0) return true;
+  
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    for (const device of devices) {
+      if (!device || !device.id) continue;
+      
+      // Fetch existing data for merge
+      const [existingRows] = await connection.execute(
+        'SELECT data FROM devices WHERE id = ?',
+        [device.id]
+      );
+      
+      const existingResult = existingRows as any[];
+      let mergedDevice = device;
+      
+      if (existingResult.length > 0 && existingResult[0].data) {
+        let existingData = existingResult[0].data;
+        if (typeof existingData === 'string') {
+          existingData = JSON.parse(existingData);
+        }
+        mergedDevice = { ...(existingData as object), ...(device as object) };
+        if (device.ports !== undefined && Array.isArray(device.ports)) {
+          mergedDevice.ports = device.ports;
+        }
+        if (device.virtualMachines !== undefined && Array.isArray(device.virtualMachines)) {
+          mergedDevice.virtualMachines = device.virtualMachines;
+        }
+      }
+      
+      const deviceJson = JSON.stringify(mergedDevice);
+      await connection.execute(
+        `INSERT INTO devices (id, data) VALUES (?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+        [device.id, deviceJson]
+      );
+    }
+    
+    await connection.commit();
+    
+    // Clear cache after batch save
+    cacheService.delete('all_devices');
+    logger('debug', 'Batch saved devices', { count: devices.length });
+    return true;
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (_) { /* ignore rollback error */ }
+    }
+    logger('error', 'Error batch saving devices', { error: (error as Error).message, count: devices.length });
+    return false;
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 // Get all devices from database
 export const getAllDevices = async () => {
   try {
@@ -267,6 +334,20 @@ export const getAllDevices = async () => {
   } catch (error) {
     logger('warn', 'Error getting all devices, returning empty array', { error: (error as Error).message });
     return [];
+  }
+};
+
+// Get a single device by ID from database
+export const getDevice = async (deviceId: string) => {
+  try {
+    const [rows] = await pool.execute('SELECT data FROM devices WHERE id = ?', [deviceId]);
+    const result = rows as any[];
+    if (result.length === 0) return null;
+    const row = result[0];
+    return typeof row.data === 'object' ? row.data : JSON.parse(row.data);
+  } catch (error) {
+    logger('warn', 'Error getting device by id', { error: (error as Error).message, deviceId });
+    return null;
   }
 };
 
@@ -377,11 +458,12 @@ export const saveAlert = async (alert: any) => {
   }
 };
 
-// Get all alerts from database
-export const getAllAlerts = async () => {
+// Get all alerts from database (with pagination limit)
+export const getAllAlerts = async (limit: number = 500) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT * FROM alerts ORDER BY created_at DESC'
+      'SELECT * FROM alerts ORDER BY created_at DESC LIMIT ?',
+      [limit]
     );
     return rows as any[];
   } catch (error) {

@@ -5,7 +5,7 @@ import ReactFlow, {
   MiniMap,
   useStoreApi,
 } from 'reactflow';
-import type { Connection, Node, Edge, NodeChange } from 'reactflow';
+import type { Connection, Node, Edge, NodeChange, NodePositionChange } from 'reactflow';
 import 'reactflow/dist/style.css';
 import NetworkDeviceNode from './NetworkDeviceNode';
 import useNetworkStore from '../store/networkStore';
@@ -165,8 +165,9 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
   );
 
   // Handle node changes (including position updates when dragging)
-  // Use ref-based throttle to avoid recreating throttle on every render
+  // Use trailing-edge throttle to ensure the final drag position is always persisted
   const throttleTimerRef = useRef<boolean>(false);
+  const pendingChangesRef = useRef<NodePositionChange[] | null>(null);
   const devicesRef = useRef(devices);
   const updateDeviceRef = useRef(updateDevice);
   devicesRef.current = devices;
@@ -174,22 +175,47 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      if (throttleTimerRef.current) return;
-      throttleTimerRef.current = true;
-      setTimeout(() => { throttleTimerRef.current = false; }, 100);
+      // Use trailing-edge throttle: always process the latest changes
+      // to ensure the final drag position is never lost.
+      const positionChanges = changes.filter(
+        (c): c is NodePositionChange => c.type === 'position' && !!(c as NodePositionChange).position
+      );
 
-      changes.forEach((change) => {
-        if (change.type === 'position') {
-          const device = (devicesRef.current || []).find((d) => d.id === change.id);
-          if (device && change.position) {
-            updateDeviceRef.current({
-              ...device,
-              x: change.position.x,
-              y: change.position.y,
-            });
-          }
+      if (positionChanges.length === 0) return;
+
+      // Store latest changes for deferred processing
+      if (!pendingChangesRef.current) {
+        pendingChangesRef.current = positionChanges;
+      } else {
+        // Merge: keep latest position per node id
+        const merged = new Map(
+          pendingChangesRef.current.map((c) => [c.id, c])
+        );
+        positionChanges.forEach((c) => merged.set(c.id, c));
+        pendingChangesRef.current = Array.from(merged.values());
+      }
+
+      if (throttleTimerRef.current) return; // Timer already scheduled, it will pick up pending changes
+
+      throttleTimerRef.current = true;
+      setTimeout(() => {
+        throttleTimerRef.current = false;
+        const pending = pendingChangesRef.current;
+        pendingChangesRef.current = null;
+
+        if (pending) {
+          pending.forEach((change) => {
+            const device = (devicesRef.current || []).find((d) => d.id === change.id);
+            if (device && change.position) {
+              updateDeviceRef.current({
+                ...device,
+                x: change.position.x,
+                y: change.position.y,
+              });
+            }
+          });
         }
-      });
+      }, 100);
     },
     [] // stable — uses refs
   );

@@ -10,6 +10,7 @@ const WS_CONFIG = {
   TIMEOUT: 20000,                   // 连接超时时间
   PING_INTERVAL: 30000,             // 心跳间隔
   PING_TIMEOUT: 5000,               // 心跳超时时间
+  MAX_TOTAL_RECONNECTION_ATTEMPTS: 50, // 绝对最大重连次数，超过后停止重连
 };
 
 class WebSocketService {
@@ -22,6 +23,14 @@ class WebSocketService {
 
   connect(): void {
     if (!this.socket || !this.isConnected) {
+      // Clean up existing socket before creating a new one to prevent connection leaks
+      if (this.socket) {
+        debug('Cleaning up existing disconnected socket before reconnect');
+        this.socket.off();
+        this.socket.disconnect();
+        this.socket = null;
+      }
+
       // Use relative path to connect to the same host as the current page
       // This works with Socket.io's automatic URL detection
       debug('Initializing WebSocket connection using relative path');
@@ -45,7 +54,7 @@ class WebSocketService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('WebSocket connected successfully');
+      debug('WebSocket connected successfully');
       this.isConnected = true;
       this.connectionAttempts = 0;
       this.notifyListeners('connect');
@@ -56,7 +65,7 @@ class WebSocketService {
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log(`WebSocket disconnected: ${reason}`);
+      debug(`WebSocket disconnected: ${reason}`);
       this.isConnected = false;
       this.notifyListeners('disconnect', reason);
       if (reason !== 'io server disconnect') {
@@ -64,19 +73,19 @@ class WebSocketService {
       }
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (err) => {
       this.connectionAttempts++;
-      console.error(`WebSocket connect error (attempt ${this.connectionAttempts}/${this.maxReconnectionAttempts}):`, error.message);
-      this.notifyListeners('connect_error', error);
+      error(`WebSocket connect error (attempt ${this.connectionAttempts}/${this.maxReconnectionAttempts}):`, { error: err });
+      this.notifyListeners('connect_error', err);
     });
 
     this.socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`WebSocket reconnect attempt ${attemptNumber}/${this.maxReconnectionAttempts}`);
+      debug(`WebSocket reconnect attempt ${attemptNumber}/${this.maxReconnectionAttempts}`);
       this.notifyListeners('reconnect_attempt', attemptNumber);
     });
 
     this.socket.on('reconnect_failed', () => {
-      console.error(`WebSocket reconnection failed after ${this.maxReconnectionAttempts} attempts`);
+      error(`WebSocket reconnection failed after ${this.maxReconnectionAttempts} attempts`);
       this.notifyListeners('reconnect_failed');
       // 最终重连失败后，设置更长时间的延迟后再次尝试
       this.maxReconnectionAttempts = WS_CONFIG.RECONNECTION_ATTEMPTS * 2;
@@ -84,43 +93,30 @@ class WebSocketService {
     });
 
     this.socket.on('deviceUpdate', (data: any) => {
-      // Only log in development mode
-      if (import.meta.env.MODE === 'development') {
-        console.log('Received device update from WebSocket:', data);
-      }
-      
       // Ensure we always work with an array
       const devicesToUpdate = Array.isArray(data) ? data : [data];
       
-      // Only log in development mode
       if (import.meta.env.MODE === 'development') {
-        console.log('Processing device update with', devicesToUpdate.length, 'devices');
-        
-        // Log VM host devices
-        const vmHosts = devicesToUpdate.filter(device => device.type === 'vm_host');
-        console.log('VM host devices in update:', vmHosts.length);
-        
-        // Log virtual machines for each VM host
-        vmHosts.forEach(host => {
-          if (host.virtualMachines) {
-            console.log(`VM host ${host.id} has ${host.virtualMachines.length} virtual machines:`);
-            host.virtualMachines.forEach((vm: import('../../types').VirtualMachine) => {
-              console.log(`  - ${vm.name} (${vm.ip}) Status: ${vm.status} Ping: ${vm.pingTime} ms`);
-            });
-          }
-        });
+        debug('Received device update from WebSocket', { count: devicesToUpdate.length });
       }
       
       this.updateDeviceData(devicesToUpdate);
     });
 
-    this.socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.notifyListeners('error', error);
+    this.socket.on('error', (err) => {
+      error('WebSocket error:', { error: err });
+      this.notifyListeners('error', err);
     });
   }
 
   private scheduleReconnect(delay: number = WS_CONFIG.RECONNECTION_DELAY): void {
+    // Check absolute maximum reconnection limit
+    if (this.connectionAttempts >= WS_CONFIG.MAX_TOTAL_RECONNECTION_ATTEMPTS) {
+      error(`WebSocket reached absolute max reconnection limit (${WS_CONFIG.MAX_TOTAL_RECONNECTION_ATTEMPTS}), stopping reconnection`);
+      this.notifyListeners('reconnect_failed');
+      return;
+    }
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
@@ -133,10 +129,10 @@ class WebSocketService {
     
     const actualDelay = delay === WS_CONFIG.RECONNECTION_DELAY ? exponentialDelay : delay;
     
-    console.log(`Scheduling reconnect in ${actualDelay}ms (attempt ${this.connectionAttempts})`);
+    debug(`Scheduling reconnect in ${actualDelay}ms (attempt ${this.connectionAttempts})`);
     
     this.reconnectTimer = setTimeout(() => {
-      console.log('Attempting to reconnect WebSocket...');
+      debug('Attempting to reconnect WebSocket...');
       this.connect();
     }, actualDelay);
   }
@@ -147,15 +143,15 @@ class WebSocketService {
       eventListeners.forEach(listener => {
         try {
           listener(data);
-        } catch (error) {
-          console.error(`Error in WebSocket listener for event ${event}:`, error);
+        } catch (err) {
+          error(`Error in WebSocket listener for event ${event}:`, { error: err });
         }
       });
     }
   }
 
   disconnect(): void {
-    console.log('Manually disconnecting WebSocket');
+    debug('Manually disconnecting WebSocket');
     
     // 清除重连计时器
     if (this.reconnectTimer) {
@@ -184,17 +180,16 @@ class WebSocketService {
   sendDeviceUpdate(device: any): void {
     if (this.socket && this.isConnected) {
       try {
-        console.log('Sending device update via WebSocket:', device.id);
+        debug('Sending device update via WebSocket:', { deviceId: device.id });
         this.socket.emit('deviceUpdate', device);
         return;
-      } catch (error) {
-        console.error('Error sending device update via WebSocket:', error);
+      } catch (err) {
+        error('Error sending device update via WebSocket:', { error: err });
       }
     }
     
-    // 发送失败时的备选方案：使用API请求
-    console.warn('WebSocket not connected, falling back to API for device update');
-    useNetworkStore.getState().updateDevice(device, false);
+    // WebSocket not available — just log a warning.
+    debug('WebSocket not connected, device update broadcast skipped (data already saved via API)');
   }
 
   private updateDeviceData(updatedDevices: any[]): void {
@@ -202,20 +197,18 @@ class WebSocketService {
 
     // Only process non-empty device updates
     if (updatedDevices.length === 0) {
-      console.log('Received empty device update, skipping');
+      debug('Received empty device update, skipping');
       return;
     }
 
     try {
-      // Always update devices individually to ensure consistent state across all clients
-      // This avoids issues with direct state replacement which can cause inconsistencies
-      console.log('Processing', updatedDevices.length, 'device updates');
+      debug('Processing device updates', { count: updatedDevices.length });
       
       updatedDevices.forEach((updatedDevice) => {
         try {
           // Validate device data
           if (!updatedDevice || !updatedDevice.id) {
-            console.error('Invalid device data:', updatedDevice);
+            error('Invalid device data:', { device: updatedDevice });
             return;
           }
           
@@ -228,35 +221,20 @@ class WebSocketService {
             if (deviceChanged) {
               // Set fromWebSocket to true to skip API call and directly update local state
               updateDevice(updatedDevice, true);
-              if (import.meta.env.MODE === 'development') {
-                console.log(`Updated device ${updatedDevice.id}`);
-              }
-            } else {
-              if (import.meta.env.MODE === 'development') {
-                console.log(`Device ${updatedDevice.id} unchanged, skipping update`);
-              }
             }
           } else {
             // New device, add it
             updateDevice(updatedDevice, true);
-            if (import.meta.env.MODE === 'development') {
-              console.log(`Added new device ${updatedDevice.id}`);
-            }
           }
-        } catch (error) {
-          console.error(`Error updating device ${updatedDevice?.id}:`, error);
+        } catch (err) {
+          error(`Error updating device ${updatedDevice?.id}:`, { error: err });
         }
       });
       
-      // After updating all devices, log completion
-      if (import.meta.env.MODE === 'development') {
-        console.log('Device update processing completed');
-      }
-      
-    } catch (error) {
-      console.error('Error processing device updates:', error);
+    } catch (err) {
+      error('Error processing device updates:', { error: err });
       // Fallback: If we encounter any error, refresh all devices from API
-      console.log('Falling back to fetching all devices from API');
+      debug('Falling back to fetching all devices from API');
       useNetworkStore.getState().fetchAllData();
     }
   }
@@ -398,7 +376,7 @@ class WebSocketService {
    * Force reconnect WebSocket connection
    */
   reconnect(): void {
-    console.log('Forcing WebSocket reconnect');
+    debug('Forcing WebSocket reconnect');
     this.disconnect();
     setTimeout(() => this.connect(), 1000);
   }

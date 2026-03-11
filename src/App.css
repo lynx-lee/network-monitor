@@ -14,19 +14,19 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 浅色主题样式 */
 .ant-layout {
   background: #fff;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 }
 
 .ant-layout-sider {
   border-right: 1px solid #f0f0f0;
   background: #fff;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, width 0.3s ease;
 }
 
 /* 深色主题样式 */
@@ -136,16 +136,57 @@ body .ant-theme-dark .react-flow {
   background-color: #051221 !important;
 }
 
+/* 深色主题下的ReactFlow控件 */
+body .ant-theme-dark .react-flow__controls {
+  background: #0e263c;
+  border-color: #1f3a5f;
+}
+
+body .ant-theme-dark .react-flow__controls button {
+  background: #0e263c;
+  color: #a0b1c5;
+  border-color: #1f3a5f;
+}
+
+body .ant-theme-dark .react-flow__controls button:hover {
+  background: #1f3a5f;
+  color: #ffffff;
+}
+
+body .ant-theme-dark .react-flow__minimap {
+  background: #0e263c;
+  border-color: #1f3a5f;
+}
+
+/* 深色主题下的卡片 */
+body .ant-theme-dark .ant-card {
+  border-color: #1f3a5f;
+}
+
+/* 深色主题下的模态框 */
+body .ant-theme-dark .ant-modal-header {
+  background: #0e263c;
+  border-bottom-color: #1f3a5f;
+}
+
+body .ant-theme-dark .ant-modal-content {
+  background: #0a1929;
+}
+
 /* 卡片样式优化 */
 .ant-card {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  transition: box-shadow 0.3s ease;
   border: 1px solid #d9d9d9;
 }
 
+/* Only apply hover transform to cards outside ReactFlow nodes */
 .ant-card:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+:not(.react-flow__node) > .ant-card:hover {
   transform: translateY(-2px);
 }
 
@@ -357,6 +398,15 @@ body .ant-theme-dark ::-webkit-scrollbar-thumb:hover {
   .react-flow__minimap {
     bottom: 80px;
     right: 20px;
+  }
+  
+  /* Responsive Modal width */
+  .ant-modal {
+    max-width: calc(100vw - 32px) !important;
+  }
+  
+  .ant-modal-body {
+    padding: 16px !important;
   }
 }
 

@@ -51,6 +51,14 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
     }
   }, [device, form]);
 
+  // Reset deviceIdRef when panel closes so that re-opening the same device
+  // will refresh the form with the latest data from the store.
+  useEffect(() => {
+    if (!visible) {
+      deviceIdRef.current = null;
+    }
+  }, [visible]);
+
   const handlePortCountChange = (count: number) => {
     setPortCount(count);
     
@@ -130,8 +138,6 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
         const ip = values.ip;
         const mac = values.mac;
         
-        console.log('Form values:', values);
-        
         const updatedDevice: NetworkDevice = {
           ...device,
           label: label !== undefined ? label : device.label,
@@ -163,14 +169,8 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
           }));
         }
         
-        console.log('Saving device:', updatedDevice.id);
-        console.log('Device ports:', updatedDevice.ports);
-        console.log('Device virtual machines:', updatedDevice.virtualMachines);
-        
         // 等待保存完成后再关闭
-        console.log('Calling onSave with device:', updatedDevice);
         const saveResult = await onSave(updatedDevice);
-        console.log('Save result:', saveResult);
       if (saveResult) {
         onClose();
       } else {
@@ -311,7 +311,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
               }}
               hoverable
             >
-              <Space orientation="horizontal" style={{ width: '100%', gap: '16px', flexWrap: 'nowrap' }}>
+              <Space direction="horizontal" style={{ width: '100%', gap: '16px', flexWrap: 'wrap' }}>
                 <Form.Item label={t('portName')} style={{ marginBottom: 0, flex: 0.8, color: textColor }}>
                   <Input
                     value={port.name}
@@ -470,7 +470,7 @@ const DeviceConfigPanel: React.FC<DeviceConfigPanelProps> = ({ device, visible, 
                   }}
                   hoverable
                 >
-                  <Space orientation="horizontal" style={{ width: '100%', gap: '16px', flexWrap: 'nowrap', alignItems: 'center' }}>
+                  <Space direction="horizontal" style={{ width: '100%', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <Button
                       type="text"
                       danger

@@ -12,7 +12,9 @@ import {
   setConfig,
   getAllConfig,
   saveDevice,
+  batchSaveDevices,
   getAllDevices,
+  getDevice,
   deleteDevice,
   saveConnection,
   getAllConnections,
@@ -95,6 +97,13 @@ const io = new Server(server, {
 // Function to get IP address from MAC address using ARP cache
 const getIpByMac = async (macAddress: string): Promise<string | null> => {
   try {
+    // Validate MAC address format to prevent regex injection
+    const macFormatRegex = /^([0-9a-fA-F]{1,2}[:\-]){5}[0-9a-fA-F]{1,2}$/;
+    if (!macFormatRegex.test(macAddress.trim())) {
+      logger('warn', 'Invalid MAC address format, skipping ARP lookup', { macAddress });
+      return null;
+    }
+
     // Run arp -a command to get ARP cache
     const arpOutput = await new Promise<string>((resolve, reject) => {
       const proc = spawn('arp', ['-a']);
@@ -111,8 +120,9 @@ const getIpByMac = async (macAddress: string): Promise<string | null> => {
       });
     });
     
-    // Parse ARP output to find IP address for given MAC
-    const macRegex = new RegExp(`([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\s+at\s+${macAddress.replace(/:/g, '\\:')}`, 'i');
+    // Escape special regex characters in the MAC address and build safe regex
+    const escapedMac = macAddress.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const macRegex = new RegExp(`([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)\\s+at\\s+${escapedMac}`, 'i');
     const match = arpOutput.match(macRegex);
     
     if (match && match[1]) {
@@ -379,19 +389,23 @@ const startDeviceDataCollection = async () => {
     pingIntervalId = setInterval(async () => {
       logger('info', 'Starting device data collection');
       
-      // Get current devices for comparison
-      const currentDevices = await getAllDevices();
-      const updatedDevices = await collectDeviceData(config);
+      // Re-fetch config on every tick to pick up threshold changes in real time.
+      const latestConfig = await getAllConfig();
       
-      // Get alert thresholds from config
-      const warningPingThreshold = config.warningPingThreshold || 100;
-      const criticalPingThreshold = config.criticalPingThreshold || 200;
-      const consecutiveFailThreshold = config.alertConsecutiveFailThreshold || 5;
+      // collectDeviceData already calls getAllDevices internally,
+      // so we reuse the pre-ping device list it returns for comparison.
+      const preCollectDevices = await getAllDevices();
+      const updatedDevices = await collectDeviceData(latestConfig);
+      
+      // Get alert thresholds from latest config
+      const warningPingThreshold = latestConfig.warningPingThreshold || 100;
+      const criticalPingThreshold = latestConfig.criticalPingThreshold || 200;
+      const consecutiveFailThreshold = latestConfig.alertConsecutiveFailThreshold || 5;
       
       // Check for alerts with consecutive failure logic
       for (const updatedDevice of updatedDevices) {
         // Find current device in the database
-        const currentDevice = (currentDevices as any[]).find((d: any) => d.id === updatedDevice.id);
+        const currentDevice = (preCollectDevices as any[]).find((d: any) => d.id === updatedDevice.id);
         
         if (currentDevice) {
           const deviceId = updatedDevice.id;
@@ -461,10 +475,8 @@ const startDeviceDataCollection = async () => {
       
       io.emit('deviceUpdate', updatedDevices);
       
-      // Save updated status to database
-      for (const device of updatedDevices) {
-        await saveDevice(device);
-      }
+      // Save updated status to database in batch (single transaction)
+      await batchSaveDevices(updatedDevices);
       logger('info', 'Device data collection completed');
     }, pingInterval);
   } else {
@@ -472,11 +484,32 @@ const startDeviceDataCollection = async () => {
   }
 };
 
+// Allowed config keys whitelist for POST /api/config
+const ALLOWED_CONFIG_KEYS = new Set([
+  'language', 'theme', 'showMiniMap', 'showControls', 'showBackground',
+  'lockCanvas', 'compactNodes', 'enablePing', 'pingInterval', 'portRates',
+  'enableServerChan', 'serverChanSendKey', 'serverChanApiUrl',
+  'serverChanUid', 'serverChanPassword',
+  'warningPingThreshold', 'criticalPingThreshold',
+  'alertMaxCountPerDay', 'alertConsecutiveFailThreshold',
+  'messageTemplates'
+]);
+
 // Handle config update to restart interval if pingInterval changes
 app.post('/api/config', async (req: Request, res: Response) => {
   try {
     const config = req.body;
-    for (const [key, value] of Object.entries(config)) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      res.status(400).json({ error: 'Invalid config payload: expected an object' });
+      return;
+    }
+    // Filter out unknown keys
+    const filteredEntries = Object.entries(config).filter(([key]) => ALLOWED_CONFIG_KEYS.has(key));
+    if (filteredEntries.length === 0) {
+      res.status(400).json({ error: 'No valid config keys provided' });
+      return;
+    }
+    for (const [key, value] of filteredEntries) {
       await setConfig(key, value);
     }
     logger('info', 'Config updated via API', config);
@@ -497,10 +530,10 @@ app.post('/api/config', async (req: Request, res: Response) => {
 io.on('connection', async (socket: Socket) => {
   logger('info', 'Client connected', { socketId: socket.id });
   
-  // Send initial data to new clients
-  const initialData = await collectDeviceData();
+  // Send initial data to new clients from database (no ping, avoids concurrent ping storms)
+  const initialData = await getAllDevices();
   socket.emit('deviceUpdate', initialData);
-  logger('debug', 'Sent initial device data to client', { socketId: socket.id, deviceCount: initialData.length });
+  logger('debug', 'Sent initial device data to client (from DB cache)', { socketId: socket.id, deviceCount: (initialData as any[]).length });
   
   // Handle client disconnect
   socket.on('disconnect', () => {
@@ -510,8 +543,12 @@ io.on('connection', async (socket: Socket) => {
   // Handle config update from client
   socket.on('configUpdate', async (config: Record<string, unknown>) => {
     try {
+      // Filter config keys through whitelist
+      const filteredEntries = Object.entries(config).filter(([key]) => ALLOWED_CONFIG_KEYS.has(key));
+      if (filteredEntries.length === 0) return;
+      
       // Save config to database
-      for (const [key, value] of Object.entries(config)) {
+      for (const [key, value] of filteredEntries) {
         await setConfig(key, value);
       }
       logger('info', 'Config updated via Socket.io', config);
@@ -530,11 +567,24 @@ io.on('connection', async (socket: Socket) => {
   // WebSocket is used only for broadcasting updates to other clients.
   socket.on('deviceUpdate', async (device: Record<string, unknown>) => {
     try {
-      logger('info', 'Received device update via Socket.io, broadcasting to clients', { deviceId: device.id });
+      logger('info', 'Received device update via Socket.io, broadcasting to other clients', { deviceId: device.id });
       
-      // Broadcast the updated device to all clients (no need to save again)
-      io.emit('deviceUpdate', [device]);
-      logger('info', 'Device update broadcasted to all clients', { deviceId: device.id });
+      // Read the full device data from the database to ensure other clients
+      // receive a complete device object (not just incremental changes).
+      const deviceId = device.id as string;
+      if (deviceId) {
+        const fullDevice = await getDevice(deviceId);
+        if (fullDevice) {
+          // Broadcast full device data to all clients EXCEPT the sender
+          socket.broadcast.emit('deviceUpdate', [fullDevice]);
+          logger('info', 'Full device data broadcasted to other clients', { deviceId });
+          return;
+        }
+      }
+      
+      // Fallback: broadcast whatever we received (should rarely happen)
+      socket.broadcast.emit('deviceUpdate', [device]);
+      logger('warn', 'Broadcasted raw device update (could not fetch full data from DB)', { deviceId: device.id });
     } catch (error) {
       logger('error', 'Error broadcasting device update via Socket.io', { error: (error as Error).message, device });
     }
@@ -565,10 +615,25 @@ app.get('/api/devices', async (_req: Request, res: Response) => {
   }
 });
 
+// Allowed device types
+const ALLOWED_DEVICE_TYPES = new Set([
+  'router', 'switch', 'server', 'optical_modem', 'vm_host',
+  'wireless_router', 'ap', 'firewall'
+]);
+
 // Save device
 app.post('/api/devices', async (req: Request, res: Response) => {
   const device = req.body;
   try {
+    // Basic validation
+    if (!device || typeof device !== 'object' || !device.id || typeof device.id !== 'string') {
+      res.status(400).json({ success: false, error: 'Invalid device: id is required and must be a string' });
+      return;
+    }
+    if (device.type && !ALLOWED_DEVICE_TYPES.has(device.type)) {
+      res.status(400).json({ success: false, error: `Invalid device type: ${device.type}` });
+      return;
+    }
     logger('debug', 'API received device to save', { deviceId: device.id });
     const success = await saveDevice(device);
     logger('debug', 'API device save result', { success, deviceId: device.id });
@@ -584,6 +649,9 @@ app.delete('/api/devices/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await deleteDevice(id);
+    // Clean up in-memory counters for deleted device
+    deviceFailCounters.delete(id);
+    deviceAlertTriggered.delete(id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete device' });

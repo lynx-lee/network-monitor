@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Modal, Switch, Select, Card, Space, Divider, InputNumber, Input, Button, Form, Table, Popconfirm, Row, Col, Tabs } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,21 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
       clearTimeout(debounceTimers.current[key]);
     }
     debounceTimers.current[key] = setTimeout(() => fn(value), 500);
+  }, []);
+
+  // Debounced update helper for text Input fields (ServerChan configs)
+  const debouncedTextUpdate = useCallback((key: string, fn: (v: string) => void, value: string) => {
+    if (debounceTimers.current[key]) {
+      clearTimeout(debounceTimers.current[key]);
+    }
+    debounceTimers.current[key] = setTimeout(() => fn(value), 600);
+  }, []);
+
+  // Clean up all pending debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(clearTimeout);
+    };
   }, []);
 
   const {
@@ -84,6 +99,22 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
     deleteMessageTemplate,
   } = useConfigStore();
   
+  // Local state for ServerChan text inputs (debounced sync to store)
+  const [localApiUrl, setLocalApiUrl] = useState(serverChanApiUrl);
+  const [localSendKey, setLocalSendKey] = useState(serverChanSendKey);
+  const [localUid, setLocalUid] = useState(serverChanUid);
+  const [localPassword, setLocalPassword] = useState(serverChanPassword);
+
+  // Sync local state from store when panel opens or store values change externally
+  useEffect(() => {
+    if (visible) {
+      setLocalApiUrl(serverChanApiUrl);
+      setLocalSendKey(serverChanSendKey);
+      setLocalUid(serverChanUid);
+      setLocalPassword(serverChanPassword);
+    }
+  }, [visible, serverChanApiUrl, serverChanSendKey, serverChanUid, serverChanPassword]);
+
   // Form states
   const [form] = Form.useForm<MessageTemplate>();
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
@@ -230,8 +261,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   <div>
                     <span style={{ marginBottom: '8px', display: 'block' }}>ServerChan API URL</span>
                     <Input
-                      value={serverChanApiUrl}
-                      onChange={(e) => updateServerChanApiUrl(e.target.value)}
+                      value={localApiUrl}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalApiUrl(v);
+                        debouncedTextUpdate('apiUrl', updateServerChanApiUrl, v);
+                      }}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
                     />
@@ -240,8 +275,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   <div>
                     <span style={{ marginBottom: '8px', display: 'block' }}>ServerChan SendKey</span>
                     <Input.Password
-                      value={serverChanSendKey}
-                      onChange={(e) => updateServerChanSendKey(e.target.value)}
+                      value={localSendKey}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalSendKey(v);
+                        debouncedTextUpdate('sendKey', updateServerChanSendKey, v);
+                      }}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
                       placeholder={t('enterServerChanSendKey')}
@@ -251,8 +290,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   <div>
                     <span style={{ marginBottom: '8px', display: 'block' }}>ServerChan UID</span>
                     <Input
-                      value={serverChanUid}
-                      onChange={(e) => updateServerChanUid(e.target.value)}
+                      value={localUid}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalUid(v);
+                        debouncedTextUpdate('uid', updateServerChanUid, v);
+                      }}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
                       placeholder={t('serverChanOptional')}
@@ -262,8 +305,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                   <div>
                     <span style={{ marginBottom: '8px', display: 'block' }}>{t('serverChanPassword')}</span>
                     <Input.Password
-                      value={serverChanPassword}
-                      onChange={(e) => updateServerChanPassword(e.target.value)}
+                      value={localPassword}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalPassword(v);
+                        debouncedTextUpdate('password', updateServerChanPassword, v);
+                      }}
                       style={{ width: '100%' }}
                       disabled={!enableServerChan}
                       placeholder={t('serverChanOptional')}
@@ -411,7 +458,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ visible, onClose }) => {
                       )
                     },
                     {
-                      title: t('status'),
+                      title: t('action'),
                       key: 'action',
                       render: (_, record) => (
                         <Space size="middle">

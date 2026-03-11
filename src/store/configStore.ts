@@ -171,12 +171,15 @@ const useConfigStore = create<ConfigStore>()(
 
   // Helper method to update a single config value
   updateConfigValue: async <K extends keyof ConfigStore>(key: K, value: ConfigStore[K]) => {
+    const previousValue = get()[key]; // Save previous value for rollback
     try {
       set({ [key]: value });
       get().clearConfigCache();
       await axios.post(`${apiConfig.baseUrl}/config`, { [key]: value });
     } catch (err) {
-      error('Failed to update config value:', { key, value, error: err as Error });
+      // Rollback local state on failure to keep frontend/backend consistent
+      set({ [key]: previousValue });
+      error('Failed to update config value, rolled back:', { key, value, error: err as Error });
     }
   },
   
@@ -250,40 +253,46 @@ const useConfigStore = create<ConfigStore>()(
     await get().updateConfigValue('alertConsecutiveFailThreshold', count);
   },
   
-  // Message template actions
+  // Message template actions with rollback on failure
   addMessageTemplate: async (template: Omit<MessageTemplate, 'id'>) => {
+    const { messageTemplates: prevTemplates } = get();
     try {
-      const { messageTemplates } = get();
-      const newId = (parseInt(messageTemplates[messageTemplates.length - 1]?.id || '0', 10) + 1).toString();
+      const newId = (parseInt(prevTemplates[prevTemplates.length - 1]?.id || '0', 10) + 1).toString();
       const newTemplate = { ...template, id: newId };
-      const newTemplates = [...messageTemplates, newTemplate];
+      const newTemplates = [...prevTemplates, newTemplate];
       set({ messageTemplates: newTemplates });
       get().clearConfigCache();
       await axios.post(`${apiConfig.baseUrl}/config`, { messageTemplates: newTemplates });
     } catch (err) {
-      error('Failed to add message template:', { template, error: err as Error });
+      // Rollback on failure
+      set({ messageTemplates: prevTemplates });
+      error('Failed to add message template, rolled back:', { template, error: err as Error });
     }
   },
   updateMessageTemplate: async (template: MessageTemplate) => {
+    const { messageTemplates: prevTemplates } = get();
     try {
-      const { messageTemplates } = get();
-      const newTemplates = messageTemplates.map(t => t.id === template.id ? template : t);
+      const newTemplates = prevTemplates.map(t => t.id === template.id ? template : t);
       set({ messageTemplates: newTemplates });
       get().clearConfigCache();
       await axios.post(`${apiConfig.baseUrl}/config`, { messageTemplates: newTemplates });
     } catch (err) {
-      error('Failed to update message template:', { template, error: err as Error });
+      // Rollback on failure
+      set({ messageTemplates: prevTemplates });
+      error('Failed to update message template, rolled back:', { template, error: err as Error });
     }
   },
   deleteMessageTemplate: async (id: string) => {
+    const { messageTemplates: prevTemplates } = get();
     try {
-      const { messageTemplates } = get();
-      const newTemplates = messageTemplates.filter(t => t.id !== id);
+      const newTemplates = prevTemplates.filter(t => t.id !== id);
       set({ messageTemplates: newTemplates });
       get().clearConfigCache();
       await axios.post(`${apiConfig.baseUrl}/config`, { messageTemplates: newTemplates });
     } catch (err) {
-      error('Failed to delete message template:', { id, error: err as Error });
+      // Rollback on failure
+      set({ messageTemplates: prevTemplates });
+      error('Failed to delete message template, rolled back:', { id, error: err as Error });
     }
   },
   
@@ -294,7 +303,9 @@ const useConfigStore = create<ConfigStore>()(
     // Check if we have a valid cache
     if (configCache && (now - configCache.timestamp) < CACHE_DURATION) {
       debug('Using cached config data');
-      set({ ...configCache.data, isLoading: false });
+      // Don't spread raw cache data — it could overwrite store functions.
+      // The cache was populated from a previous fetchConfig that already applied safeFields.
+      // Re-apply the same whitelist filter for safety.
       return;
     }
     
@@ -306,8 +317,26 @@ const useConfigStore = create<ConfigStore>()(
         data: response.data,
         timestamp: now
       };
+      // Only extract known config fields from server response to prevent
+      // overwriting store action functions with arbitrary server data.
+      const data = response.data || {};
+      const safeFields: Partial<ConfigStore> = {};
+      const allowedKeys: (keyof ConfigStore)[] = [
+        'language', 'theme', 'showMiniMap', 'showControls', 'showBackground',
+        'lockCanvas', 'compactNodes', 'enablePing', 'pingInterval', 'portRates',
+        'enableServerChan', 'serverChanSendKey', 'serverChanApiUrl',
+        'serverChanUid', 'serverChanPassword',
+        'warningPingThreshold', 'criticalPingThreshold',
+        'alertMaxCountPerDay', 'alertConsecutiveFailThreshold',
+        'messageTemplates'
+      ];
+      for (const key of allowedKeys) {
+        if (key in data) {
+          (safeFields as any)[key] = data[key];
+        }
+      }
       set({ 
-        ...response.data, 
+        ...safeFields, 
         isLoading: false,
         configCache: newCache
       });

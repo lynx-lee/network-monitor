@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, Button, Divider, Space, Typography, Tooltip } from 'antd';
 import {
   GatewayOutlined,
@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
   const cardBg = isDark ? '#0a1929' : '#ffffff';
   const cardBorder = isDark ? '1px solid #1f3a5f' : '1px solid #d9d9d9';
 
-  const deviceTypes: { type: DeviceType; icon: React.ReactNode; label: string }[] = [
+  const deviceTypes = useMemo<{ type: DeviceType; icon: React.ReactNode; label: string }[]>(() => [
     { type: 'optical_modem', icon: <CloudOutlined />, label: t('opticalModem') },
     { type: 'router', icon: <GatewayOutlined />, label: t('router') },
     { type: 'switch', icon: <ClusterOutlined />, label: t('switch') },
@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
     { type: 'vm_host', icon: <ContainerOutlined />, label: t('vmHost') },
     { type: 'wireless_router', icon: <WifiOutlined />, label: t('wirelessRouter') },
     { type: 'ap', icon: <BranchesOutlined />, label: t('accessPoint') },
-  ];
+  ], [t]);
 
   return (
     <div style={{ 
@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
           padding: collapsed ? '8px' : '0',
         }}
       >
-        <Space orientation="vertical" style={{ width: '100%' }}>
+        <Space direction="vertical" style={{ width: '100%' }}>
           {deviceTypes.map((device) => (
             <Tooltip key={device.type} title={collapsed ? device.label : ''} placement="right">
               <Button
@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
                 }}
               >
                 {!collapsed && (
-                  <Space orientation="horizontal" style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <Space direction="horizontal" style={{ width: '100%', justifyContent: 'space-between' }}>
                     {device.label}
                     <PlusOutlined />
                   </Space>
@@ -209,4 +209,4 @@ const Sidebar: React.FC<SidebarProps> = ({ onAddDevice, onOpenConfigPanel, onOpe
   );
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

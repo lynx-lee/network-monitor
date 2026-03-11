@@ -9,10 +9,12 @@ const apiConfig = {
   baseUrl: import.meta.env.VITE_API_URL || '/api',
   retryAttempts: 3,
   retryDelay: 1000,
+  timeout: 15000, // 15 seconds timeout
 };
 
 /**
  * API request wrapper with retry mechanism
+ * Only retries on 5xx errors and network failures, NOT on 4xx client errors
  */
 async function apiRequest<T>(
   method: 'get' | 'post' | 'delete',
@@ -25,16 +27,22 @@ async function apiRequest<T>(
       method,
       url: `${apiConfig.baseUrl}${url}`,
       data,
+      timeout: apiConfig.timeout,
     });
     return response.data as T;
   } catch (err) {
-    const error = err as Error;
-    if (retryAttempts > 0 && axios.isAxiosError(error) && error.code !== 'ECONNABORTED') {
-      debug('API request failed, retrying...', { url, retryAttempts, error: error.message });
+    const axiosErr = err as any;
+    // Don't retry on 4xx client errors (bad request, not found, etc.)
+    const is4xx = axios.isAxiosError(axiosErr) && axiosErr.response && axiosErr.response.status >= 400 && axiosErr.response.status < 500;
+    if (is4xx) {
+      throw axiosErr;
+    }
+    if (retryAttempts > 0 && axios.isAxiosError(axiosErr) && axiosErr.code !== 'ECONNABORTED') {
+      debug('API request failed, retrying...', { url, retryAttempts, error: axiosErr.message });
       await new Promise(resolve => setTimeout(resolve, apiConfig.retryDelay));
       return apiRequest<T>(method, url, data, retryAttempts - 1);
     }
-    throw error;
+    throw axiosErr;
   }
 }
 
@@ -520,11 +528,10 @@ const useNetworkStore = create<NetworkStore>((set, get) => ({
       
       set({ isLoading: false });
     } catch (err) {
+      // Promise.allSettled never throws, but guard defensively.
+      // Do NOT clear existing data — preserve whatever we already have.
       error('Failed to fetch all data:', { error: err as Error });
-      // Ensure state is consistent even if fetch fails
       set({ isLoading: false });
-      // 保留现有数据，只在无法恢复时清空
-      set({ devices: [], connections: [] });
     }
   },
   
