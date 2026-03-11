@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { getAllConfig, getTodayAlertCount, getDeviceAlertEnabled, saveAlert } from './configService';
-import { loggerService } from './services/loggerService';
+import { loggerService } from './loggerService';
 
 const logger = loggerService.log.bind(loggerService);
 

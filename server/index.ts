@@ -28,8 +28,8 @@ import {
   getDeviceAlertEnabled,
   checkPoolHealth,
   closePool
-} from './configService';
-import serverChanService from './serverChanService';
+} from './services/configService';
+import serverChanService from './services/serverChanService';
 import type { VirtualMachine } from '../types';
 import monitoringService from './services/monitoringService';
 import businessMonitoringService from './services/businessMonitoringService';

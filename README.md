@@ -8,9 +8,21 @@
 
 ## 版本更新
 
+### V3.4.0
+
+- **项目目录结构整理**：
+  - `server/configService.ts`、`server/serverChanService.ts` 移入 `server/services/`，后端全部业务逻辑统一归入 `services/` 目录
+  - 删除废弃的测试文件（`src/test/setup.ts`、`src/services/websocketService.test.ts`，内容已全部注释）
+  - 删除过时的优化报告文档（`docs/CANVAS_OPTIMIZATION.md`、`OPTIMIZATION_*.md` 共 4 个，信息已合并至 README 变更日志）
+  - 删除 Vite/React 默认占位资源（`public/vite.svg`、`src/assets/react.svg`）及空目录
+  - 删除 `tests/manual/` 手动测试脚本（`test_api.sh`、`test-alert.ts`、`test-config-load.html`）
+  - `index.html` 更新：语言标签改为 `zh-CN`，标题改为 `Network Monitor`，favicon 改用内联 SVG emoji
+  - `vitest.config.ts` 清理：移除已删除的 `setupFiles` 引用和未使用的路径别名
+  - README 项目结构描述全面更新，修正过时的文件名和目录
+
 ### V3.3.1
 
-- **Dockerfile 基础镜像降级**：三个构建阶段从 `node:22-alpine` 改为 `node:20-alpine`，复用服务器已缓存的镜像，避免构建时重新拉取，显著加快构建速度
+- **Dockerfile 基础镜像降级**：`Dockerfile` 三个构建阶段 + `Dockerfile.frontend` 从 `node:22-alpine` 改为 `node:20-alpine`，复用服务器已缓存的镜像，避免构建时重新拉取，显著加快构建速度
 - **部署脚本 banner 修复**：原 Unicode 全角方块字符（`█`）在终端中占双宽度导致边框右侧错位显示不完整，改用纯 ASCII Art 字体，兼容所有终端
 - **部署脚本 banner 优化**：添加上下分隔线，版本号从 `package.json` 动态读取，升版时无需同步修改 `deploy.sh`
 
@@ -235,7 +247,7 @@ V2.0.0 为项目初始版本，完成全部核心功能开发，共 68 个文件
 
 #### 后端架构
 
-- **Node.js 22 + Express + Socket.IO**：REST API + WebSocket 实时推送
+- **Node.js + Express + Socket.IO**：REST API + WebSocket 实时推送
 - **MySQL 8.0**：devices / connections / configs / alerts / alert_settings 五张表
 - **服务层**：configService（数据库操作）、alertService（告警引擎）、monitoringService（系统监控）、cacheService（内存缓存）、loggerService（文件日志）、businessMonitoringService（业务指标）
 
@@ -328,87 +340,73 @@ V2.0.0 为项目初始版本，完成全部核心功能开发，共 68 个文件
 
 ```
 network-monitor/
-├── server/                     # 后端代码
-│   ├── index.ts                # 服务入口（Express + Socket.IO）
-│   ├── configService.ts        # 数据库操作服务
-│   ├── serverChanService.ts    # ServerChan 告警推送
-│   ├── config/                 # 服务端配置
+├── server/                          # 后端代码
+│   ├── index.ts                     # 服务入口（Express + Socket.IO + API 路由）
+│   ├── config/                      # 服务端配置
 │   │   └── index.ts
-│   └── services/               # 后端业务服务
-│       ├── alertService.ts     # 告警规则引擎
-│       ├── monitoringService.ts      # 系统监控（CPU/内存/事件循环）
+│   └── services/                    # 后端业务服务
+│       ├── configService.ts         # 数据库操作（CRUD）
+│       ├── serverChanService.ts     # ServerChan 告警推送
+│       ├── alertService.ts          # 告警规则引擎
+│       ├── monitoringService.ts     # 系统监控（CPU/内存/事件循环）
 │       ├── businessMonitoringService.ts  # 业务指标监控
-│       ├── cacheService.ts     # 内存缓存服务
-│       └── loggerService.ts    # 文件日志服务
-├── src/                        # 前端代码
-│   ├── App.tsx                 # 应用入口组件
-│   ├── App.css                 # 应用样式
-│   ├── main.tsx                # 入口文件
-│   ├── index.css               # 全局样式
-│   ├── components/             # React 组件
-│   │   ├── NetworkCanvas.tsx   # 网络拓扑画布
-│   │   ├── NetworkDeviceNode.tsx  # 设备节点组件
-│   │   ├── Sidebar.tsx         # 侧边栏（设备添加）
-│   │   ├── DeviceConfigPanel.tsx  # 设备配置面板
-│   │   ├── ConfigPanel.tsx     # 系统配置面板
-│   │   ├── AlertPanel.tsx      # 告警面板
-│   │   ├── ErrorBoundary.tsx   # 错误边界
-│   │   └── LanguageSwitcher.tsx  # 语言切换
-│   ├── services/               # 前端服务
-│   │   ├── websocketService.ts # WebSocket 客户端
-│   │   └── loggerService.ts    # 前端日志（console）
-│   ├── store/                  # 状态管理
-│   │   ├── networkStore.ts     # 设备 & 连接状态
-│   │   └── configStore.ts      # 系统配置状态
-│   ├── config/                 # 前端配置
+│       ├── cacheService.ts          # 内存缓存服务
+│       └── loggerService.ts         # 文件日志服务
+├── src/                             # 前端代码
+│   ├── main.tsx                     # 入口文件
+│   ├── App.tsx                      # 应用根组件
+│   ├── App.css / index.css          # 样式
+│   ├── components/                  # React 组件
+│   │   ├── NetworkCanvas.tsx        # 网络拓扑画布
+│   │   ├── NetworkDeviceNode.tsx    # 设备节点组件
+│   │   ├── Sidebar.tsx              # 侧边栏（设备添加）
+│   │   ├── DeviceConfigPanel.tsx    # 设备配置面板
+│   │   ├── ConfigPanel.tsx          # 系统配置面板
+│   │   ├── AlertPanel.tsx           # 告警面板
+│   │   ├── ErrorBoundary.tsx        # 错误边界
+│   │   └── LanguageSwitcher.tsx     # 语言切换
+│   ├── services/                    # 前端服务
+│   │   ├── websocketService.ts      # WebSocket 客户端
+│   │   └── loggerService.ts         # 前端日志
+│   ├── store/                       # Zustand 状态管理
+│   │   ├── networkStore.ts          # 设备 & 连接状态
+│   │   └── configStore.ts           # 系统配置状态
+│   ├── hooks/                       # 自定义 Hooks
+│   │   └── useTheme.ts
+│   ├── config/                      # 前端配置
 │   │   └── index.ts
-│   ├── hooks/                  # 自定义 Hooks
-│   │   └── useDragOptimization.ts
-│   ├── i18n/                   # 国际化
+│   ├── i18n/                        # 国际化
 │   │   └── config.ts
-│   ├── utils/                  # 工具函数
-│   │   └── performanceUtils.ts
-│   ├── test/                   # 测试配置
-│   │   └── setup.ts
-│   └── assets/                 # 静态资源
-├── types/                      # 共享 TypeScript 类型定义
-│   └── index.ts                # DeviceType, NetworkDevice, Connection 等
-├── docs/                       # 项目文档
-│   ├── architecture.svg        # 系统架构图
-│   ├── API_DOCUMENTATION.md
-│   ├── CANVAS_OPTIMIZATION.md
-│   ├── OPTIMIZATION_IMPLEMENTATION.md
-│   ├── OPTIMIZATION_REPORT.md
-│   └── OPTIMIZATION_REPORT_FINAL.md
-├── tests/                      # 测试文件
-│   └── manual/                 # 手动测试脚本
-│       ├── test_api.sh         # API 端点测试
-│       ├── test-alert.ts       # 告警功能测试
-│       └── test-config-load.html  # 配置加载测试
-├── public/                     # 静态资源（Vite）
-├── deploy/                     # 部署相关文件
-│   ├── deploy.sh               # 部署管理脚本（init/start/stop/backup/restore/health 等）
-│   ├── docker-compose.yml      # Docker Compose 编排
-│   ├── Dockerfile              # 后端 + 前端构建镜像
-│   ├── Dockerfile.frontend     # 前端独立镜像（Nginx）
-│   ├── nginx.conf              # Nginx 配置
-│   └── mysql-init.sql          # 数据库初始化脚本
-├── .env.example                # 环境变量示例
-├── package.json                # 项目依赖
-├── tsconfig.json               # TypeScript 项目引用
-├── tsconfig.app.json           # 前端 TS 配置
-├── tsconfig.server.json        # 后端 TS 配置
-├── tsconfig.node.json          # Vite 配置 TS
-├── vite.config.ts              # Vite 配置
-├── vitest.config.ts            # Vitest 配置
-└── eslint.config.js            # ESLint 配置
+│   └── utils/                       # 工具函数
+│       └── performanceUtils.ts
+├── types/                           # 前后端共享 TypeScript 类型
+│   └── index.ts
+├── deploy/                          # 部署相关
+│   ├── deploy.sh                    # 部署管理脚本
+│   ├── docker-compose.yml           # Docker Compose 编排
+│   ├── Dockerfile                   # 后端全栈镜像
+│   ├── Dockerfile.frontend          # 前端 Nginx 镜像
+│   ├── nginx.conf                   # Nginx 配置
+│   └── mysql-init.sql               # 数据库初始化
+├── docs/                            # 文档
+│   ├── architecture.svg             # 系统架构图
+│   └── API_DOCUMENTATION.md         # API 文档
+├── index.html                       # Vite 入口 HTML
+├── package.json                     # 依赖管理
+├── tsconfig.json                    # TypeScript 项目引用（根）
+├── tsconfig.app.json                # 前端 TS 配置
+├── tsconfig.server.json             # 后端 TS 配置
+├── tsconfig.node.json               # Vite TS 配置
+├── vite.config.ts                   # Vite 构建配置
+├── vitest.config.ts                 # 测试配置
+└── eslint.config.js                 # ESLint 配置
 ```
 
 ## 快速开始
 
 ### 环境要求
 
-- Node.js 22+
+- Node.js 20+
 - MySQL 8.0（开发环境）或 Docker 20+（容器化部署）
 
 ### 开发环境
@@ -582,4 +580,4 @@ MIT
 
 ---
 
-*Last updated: 2026-03-11 (V3.3.1)*
+*Last updated: 2026-03-11 (V3.4.0)*

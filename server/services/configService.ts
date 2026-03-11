@@ -1,8 +1,8 @@
 import mysql from 'mysql2/promise';
 // Import logger service
-import { loggerService } from './services/loggerService';
+import { loggerService } from './loggerService';
 // Import cache service
-import cacheService from './services/cacheService';
+import cacheService from './cacheService';
 // Re-export logger for backward compatibility
 export const logger = loggerService.log.bind(loggerService);
 
