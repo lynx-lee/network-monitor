@@ -9,8 +9,11 @@ build/
 .git/
 .gitignore
 
-# Deploy files (avoid recursive COPY)
-deploy/
+# Deploy files (avoid recursive COPY, but keep nginx.conf for frontend build)
+deploy/*.sh
+deploy/*.sql
+deploy/*.yml
+deploy/Dockerfile*
 backups/
 
 # Documentation and tests (not needed in image)

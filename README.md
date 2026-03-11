@@ -19,6 +19,7 @@
   - `index.html` 更新：语言标签改为 `zh-CN`，标题改为 `Network Monitor`，favicon 改用内联 SVG emoji
   - 删除 `vitest.config.ts`（vitest 未安装且无测试文件），清理 `package.json` 中的 vitest 脚本
   - README 项目结构描述全面更新，修正过时的文件名和目录
+  - `.dockerignore` 修复：原先粗粒度排除整个 `deploy/` 导致前端镜像构建时 `COPY deploy/nginx.conf` 失败，改为精细排除（仅排除 `*.sh`、`*.sql`、`*.yml`、`Dockerfile*`），保留 `nginx.conf`
 
 ### V3.3.1
 
