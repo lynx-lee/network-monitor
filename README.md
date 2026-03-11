@@ -17,7 +17,7 @@
   - 删除 Vite/React 默认占位资源（`public/vite.svg`、`src/assets/react.svg`）及空目录
   - 删除 `tests/manual/` 手动测试脚本（`test_api.sh`、`test-alert.ts`、`test-config-load.html`）
   - `index.html` 更新：语言标签改为 `zh-CN`，标题改为 `Network Monitor`，favicon 改用内联 SVG emoji
-  - `vitest.config.ts` 清理：移除已删除的 `setupFiles` 引用和未使用的路径别名
+  - 删除 `vitest.config.ts`（vitest 未安装且无测试文件），清理 `package.json` 中的 vitest 脚本
   - README 项目结构描述全面更新，修正过时的文件名和目录
 
 ### V3.3.1

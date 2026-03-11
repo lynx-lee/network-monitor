@@ -10,9 +10,7 @@
     "preview": "vite preview",
     "server": "tsx server/index.ts",
     "start": "npm run server & npm run dev",
-    "test": "vitest",
-    "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage"
+    "test": "echo \"No tests configured yet\""
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
