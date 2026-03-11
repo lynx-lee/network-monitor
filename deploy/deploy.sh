@@ -63,7 +63,8 @@ log_error() {
 }
 
 print_banner() {
-    local VERSION="3.3.1"
+    local VERSION
+    VERSION=$(grep '"version"' "${PROJECT_ROOT}/package.json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
     echo ""
     echo -e "${CYAN} ──────────────────────────────────────────────────────"
     echo -e "  _   _      _     __  __             _ _"
