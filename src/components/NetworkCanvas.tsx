@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { debug } from '../services/loggerService';
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
   useStoreApi,
 } from 'reactflow';
-import type { Connection, Node, Edge, NodeChange, NodePositionChange } from 'reactflow';
+import type { Connection, Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import NetworkDeviceNode from './NetworkDeviceNode';
 import useNetworkStore from '../store/networkStore';
@@ -13,6 +14,7 @@ import useConfigStore from '../store/configStore';
 import useTheme from '../hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 import type { NetworkDevice } from '../../types';
+import { formatPortRate } from '../types/common';
 
 const nodeTypes = {
   networkDevice: NetworkDeviceNode,
@@ -54,7 +56,7 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
     [devices]
   );
 
-  // #14: Build device lookup Map for O(1) access in edges computation
+  // Build device lookup Map for O(1) access in edges computation
   const deviceMap = useMemo(() => {
     const map = new Map<string, NetworkDevice>();
     (devices || []).forEach(d => map.set(d.id, d));
@@ -102,10 +104,7 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
         boxShadow: '0 0 0 0 transparent',
         transition: 'all 0.2s ease',
       },
-      label: `${lineRate === 1000 ? '1 Gbps' : 
-              lineRate === 10000 ? '10 Gbps' : 
-              lineRate === 2500 ? '2.5 Gbps' : 
-              `${lineRate} Mbps`}`, 
+      label: formatPortRate(lineRate), 
       labelStyle: {
         fontSize: '10px',
         backgroundColor: currentTheme === 'dark' ? '#0e263c' : '#fff',
@@ -157,67 +156,32 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
           
           addConnection(newConnection);
         } else {
-          console.log('Duplicate connection detected, skipping creation');
+          debug('Duplicate connection detected, skipping creation');
         }
       }
     },
     [addConnection, connections]
   );
 
-  // Handle node changes (including position updates when dragging)
-  // Use trailing-edge throttle to ensure the final drag position is always persisted
-  const throttleTimerRef = useRef<boolean>(false);
-  const pendingChangesRef = useRef<NodePositionChange[] | null>(null);
+  // Persist final drag position to backend — fires only once per drag via ReactFlow's built-in event.
+  // This is more reliable than throttle-based onNodesChange which can miss the last position.
   const devicesRef = useRef(devices);
   const updateDeviceRef = useRef(updateDevice);
   devicesRef.current = devices;
   updateDeviceRef.current = updateDevice;
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      // Use trailing-edge throttle: always process the latest changes
-      // to ensure the final drag position is never lost.
-      const positionChanges = changes.filter(
-        (c): c is NodePositionChange => c.type === 'position' && !!(c as NodePositionChange).position
-      );
-
-      if (positionChanges.length === 0) return;
-
-      // Store latest changes for deferred processing
-      if (!pendingChangesRef.current) {
-        pendingChangesRef.current = positionChanges;
-      } else {
-        // Merge: keep latest position per node id
-        const merged = new Map(
-          pendingChangesRef.current.map((c) => [c.id, c])
-        );
-        positionChanges.forEach((c) => merged.set(c.id, c));
-        pendingChangesRef.current = Array.from(merged.values());
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      const device = (devicesRef.current || []).find((d) => d.id === node.id);
+      if (device) {
+        updateDeviceRef.current({
+          ...device,
+          x: node.position.x,
+          y: node.position.y,
+        });
       }
-
-      if (throttleTimerRef.current) return; // Timer already scheduled, it will pick up pending changes
-
-      throttleTimerRef.current = true;
-      setTimeout(() => {
-        throttleTimerRef.current = false;
-        const pending = pendingChangesRef.current;
-        pendingChangesRef.current = null;
-
-        if (pending) {
-          pending.forEach((change) => {
-            const device = (devicesRef.current || []).find((d) => d.id === change.id);
-            if (device && change.position) {
-              updateDeviceRef.current({
-                ...device,
-                x: change.position.x,
-                y: change.position.y,
-              });
-            }
-          });
-        }
-      }, 100);
     },
-    [] // stable — uses refs
+    []
   );
 
   // Handle edge deletion
@@ -334,7 +298,8 @@ const NetworkCanvas: React.FC<NetworkCanvasProps> = ({ onDeviceDoubleClick }) =>
       nodes={nodes}
       edges={edges}
       onConnect={onConnect}
-      onNodesChange={onNodesChange}
+      onNodesChange={undefined}
+      onNodeDragStop={onNodeDragStop}
       onEdgesDelete={onEdgesDelete}
       onEdgeContextMenu={onEdgeContextMenu}
       onNodeDoubleClick={onNodeDoubleClick}

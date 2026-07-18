@@ -72,7 +72,7 @@ function App() {
     setAlertPanelVisible(false);
   }, []);
 
-  // #8: 新设备添加位置随机偏移，避免重叠
+  // Add new devices with random position offset to avoid stacking
   const deviceCountRef = React.useRef(0);
   const handleAddDevice = useCallback((type: DeviceType) => {
     const baseX = window.innerWidth / 4;
@@ -82,7 +82,7 @@ function App() {
     addDevice(type, baseX + offset + Math.random() * 60 - 30, baseY + offset + Math.random() * 60 - 30);
   }, [addDevice]);
 
-  // #7: 只在用户明确双击设备时打开配置面板，单击仅选中
+  // Only open config panel on explicit double-click; single-click just selects
   const handleDeviceDoubleClick = useCallback(() => {
     if (selectedDevice) {
       setConfigVisible(true);

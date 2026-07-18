@@ -45,12 +45,13 @@ const logger = loggerService.log.bind(loggerService);
 const MAX_CONCURRENT_PINGS = 10;
 
 async function limitConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
-  const results: T[] = [];
+  const results: T[] = new Array(tasks.length);
   const executing: Promise<void>[] = [];
   
-  for (const task of tasks) {
-    const p = task().then(result => {
-      results.push(result);
+  for (let i = 0; i < tasks.length; i++) {
+    const index = i;
+    const p = tasks[i]().then(result => {
+      results[index] = result; // Preserve original order via indexed assignment
       executing.splice(executing.indexOf(p), 1);
     });
     executing.push(p);
@@ -124,7 +125,8 @@ const getIpByMac = async (macAddress: string): Promise<string | null> => {
     
     // Escape special regex characters in the MAC address and build safe regex
     const escapedMac = macAddress.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const macRegex = new RegExp(`([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)\\s+at\\s+${escapedMac}`, 'i');
+    // Use [ \t] instead of \s to avoid matching newlines, keeping each match within a single line
+    const macRegex = new RegExp(`([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)[ \\t]+at[ \\t]+${escapedMac}\\b`, 'i');
     const match = arpOutput.match(macRegex);
     
     if (match && match[1]) {
@@ -190,16 +192,14 @@ const pingDevice = async (ip: string, timeout: number = 2000): Promise<{ isUp?: 
     
     // Check if ping was successful - more flexible check
     // Consider device as up if output contains any success indicators
+    // Only use reliable success indicators — avoid 'bytes from'/'time='/'ttl='
+    // which can also appear in error/redirect messages
     const successIndicators = [
       '1 packets transmitted, 1 received',
       '1 packets transmitted, 1 packets received', // macOS format
       '1 received',
       '0.0% packet loss', // Success indicator: no packet loss
-      'bytes from',
-      'time=',
       'round-trip', // macOS success indicator
-      'ttl=',
-      'TTL='
     ];
     
     const hasSuccessIndicator = successIndicators.some(indicator => 
@@ -381,7 +381,7 @@ const startDeviceDataCollection = async () => {
   // Get current configuration
   const config = await getAllConfig();
   const enablePing = config.enablePing !== false; // Default to true if not set
-  const pingInterval = config.pingInterval || 5000; // Default to 5 seconds if not set
+  const pingInterval = Math.max(config.pingInterval || 5000, 1000); // Min 1s to prevent high-frequency pings
   
   logger('info', 'Starting device data collection', { enablePing, pingInterval });
   
@@ -569,24 +569,32 @@ io.on('connection', async (socket: Socket) => {
   // WebSocket is used only for broadcasting updates to other clients.
   socket.on('deviceUpdate', async (device: Record<string, unknown>) => {
     try {
-      logger('info', 'Received device update via Socket.io, broadcasting to other clients', { deviceId: device.id });
-      
+      // Validate device payload before processing
+      if (!device || typeof device !== 'object') {
+        logger('warn', 'Received invalid device update payload via Socket.io, ignoring');
+        return;
+      }
+      const deviceId = device.id as string | undefined;
+      if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 200) {
+        logger('warn', 'Received device update with invalid/missing id via Socket.io, ignoring', { deviceId });
+        return;
+      }
+
+      logger('info', 'Received device update via Socket.io, broadcasting to other clients', { deviceId });
+
       // Read the full device data from the database to ensure other clients
       // receive a complete device object (not just incremental changes).
-      const deviceId = device.id as string;
-      if (deviceId) {
-        const fullDevice = await getDevice(deviceId);
-        if (fullDevice) {
-          // Broadcast full device data to all clients EXCEPT the sender
-          socket.broadcast.emit('deviceUpdate', [fullDevice]);
-          logger('info', 'Full device data broadcasted to other clients', { deviceId });
-          return;
-        }
+      const fullDevice = await getDevice(deviceId);
+      if (fullDevice) {
+        // Broadcast full device data to all clients EXCEPT the sender
+        socket.broadcast.emit('deviceUpdate', [fullDevice]);
+        logger('info', 'Full device data broadcasted to other clients', { deviceId });
+        return;
       }
       
       // Fallback: broadcast whatever we received (should rarely happen)
       socket.broadcast.emit('deviceUpdate', [device]);
-      logger('warn', 'Broadcasted raw device update (could not fetch full data from DB)', { deviceId: device.id });
+      logger('warn', 'Broadcasted raw device update (could not fetch full data from DB)', { deviceId });
     } catch (error) {
       logger('error', 'Error broadcasting device update via Socket.io', { error: (error as Error).message, device });
     }
@@ -981,13 +989,11 @@ const gracefulShutdown = async (signal: string) => {
     loggerService.close();
   } catch (_) { /* ignore */ }
 
-  // Force exit after timeout
+  // Force exit after timeout — the only exit point for graceful shutdown
   setTimeout(() => {
     console.error('Graceful shutdown timed out, forcing exit');
     process.exit(1);
   }, 10000).unref();
-
-  process.exit(0);
 };
 
 // Signal handlers
@@ -997,7 +1003,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Global exception handlers
 process.on('uncaughtException', (error: Error) => {
   logger('error', 'Uncaught exception', { error: error.message, stack: error.stack });
-  gracefulShutdown('uncaughtException');
+  // Exit with non-zero code so Docker/PM2 can restart the process.
+  // gracefulShutdown cannot reliably clean up after an uncaughtException.
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
@@ -1011,7 +1019,7 @@ initializeDatabase()
     startServer();
   })
   .catch((error) => {
-    logger('warn', 'Failed to initialize database, starting server in degraded mode', { error: (error as Error).message });
-    startServices();
-    startServer();
+    logger('error', 'Failed to initialize database — exiting', { error: (error as Error).message });
+    // Database is required for all monitoring services. Exit so Docker/PM2 can restart.
+    process.exit(1);
   });

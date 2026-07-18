@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import type { NetworkDevice, Connection, DeviceType } from '../../types';
+import { type CacheItem } from '../types/common';
 import websocketService from '../services/websocketService';
 import { debug, error } from '../services/loggerService';
 
@@ -48,13 +49,6 @@ async function apiRequest<T>(
 
 // Cache configuration
 const CACHE_DURATION = 5000; // 5 seconds cache duration
-
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
-}
-
-// Generate random MAC address for ports only
 const generateMAC = (): string => {
   return Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':');
 };

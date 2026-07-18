@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import { apiConfig } from '../config';
+import { type CacheItem } from '../types/common';
 import { debug, error } from '../services/loggerService';
 
 // Define message template interface
@@ -15,11 +16,6 @@ export interface MessageTemplate {
 
 // Cache configuration
 const CACHE_DURATION = 5000; // 5 seconds cache duration
-
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
-}
 
 interface ConfigStore {
   // Existing configs
