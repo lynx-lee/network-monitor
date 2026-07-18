@@ -377,11 +377,11 @@ class WebSocketService {
    */
   reconnect(): void {
     debug('Forcing WebSocket reconnect');
-    // Disconnect socket without removing custom event listeners
+    // Clean up socket but preserve custom event listeners registered via on()
     this.socket?.removeAllListeners();
     this.socket?.disconnect();
     this.socket = null;
-    this.eventListeners.clear();
+    // Do NOT clear this.listeners — preserve user-registered handlers across reconnect
     setTimeout(() => this.connect(), 1000);
   }
 }
