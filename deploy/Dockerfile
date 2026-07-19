@@ -51,5 +51,5 @@ COPY package.json ./
 # 暴露端口
 EXPOSE 3001
 
-# 启动应用（运行编译后的 JS）
-CMD ["node", "dist-server/server/index.js"]
+# 启动应用（用 tsx 运行，支持 ESM 目录导入）
+CMD ["npx", "tsx", "dist-server/server/index.js"]

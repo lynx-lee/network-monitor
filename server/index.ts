@@ -3,6 +3,8 @@ import http from 'http';
 import cors from 'cors';
 import { Server, Socket } from 'socket.io';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import {
   serverConfig
@@ -921,6 +923,22 @@ app.get('/api/alerts/:deviceId', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to get alerts' });
   }
 });
+
+// In production, serve static frontend files from the dist/ directory
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist');
+
+  // Serve static assets (JS, CSS, images, etc.)
+  app.use(express.static(distPath));
+
+  // SPA fallback — serve index.html for non-API routes
+  app.use((req: Request, res: Response, next: express.NextFunction) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // Initialize database and start server
 const startServer = () => {

@@ -109,7 +109,7 @@ const useConfigStore = create<ConfigStore>()(
       showControls: true,
       showBackground: true,
       lockCanvas: false, // Default: canvas is unlocked
-      compactNodes: true, // Default: nodes are compact (collapsed)
+      compactNodes: false, // Default: nodes are non-compact (expanded)
       enablePing: true, // Default: enable ping探测
       pingInterval: 5000, // Default ping interval: 5 seconds
       portRates: [100, 1000, 2500, 10000], // Default port rates: 100Mbps, 1Gbps, 2.5Gbps, 10Gbps
